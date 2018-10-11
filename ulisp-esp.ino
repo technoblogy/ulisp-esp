@@ -1,4 +1,4 @@
-/* uLisp ESP 2.4 - www.ulisp.com
+/* uLisp ESP Version 2.4 - www.ulisp.com
    David Johnson-Davies - www.technoblogy.com - 11th October 2018
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
