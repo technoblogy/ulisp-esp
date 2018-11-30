@@ -1,5 +1,5 @@
-/* uLisp ESP Version 2.4 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 11th October 2018
+/* uLisp ESP Version 2.5 - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 30th November 2018
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -135,8 +135,8 @@ typedef void (*pfun_t)(char);
   typedef int BitOrder;
 
 #elif defined(ESP32)
-  #define WORKSPACESIZE 4096-SDSIZE       /* Cells (8*bytes) */
-  #define EEPROMSIZE 4096                 /* Bytes available for EEPROM */
+  #define WORKSPACESIZE 8000-SDSIZE       /* Cells (8*bytes) */
+  #define EEPROMSIZE 8192                 /* Bytes available for EEPROM */
   #define SYMBOLTABLESIZE 512             /* Bytes */
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
@@ -168,7 +168,7 @@ char LastPrint = 0;
 char PrintReadably = 1;
 
 // Flags
-enum flag { RETURNFLAG, ESCAPE, EXITEDITOR };
+enum flag { RETURNFLAG, ESCAPE, EXITEDITOR, LIBRARYLOADED };
 volatile char Flags;
 
 // Forward references
@@ -965,7 +965,7 @@ void serialbegin (int address, int baud) {
 
 void serialend (int address) {
   #if defined(ESP32) || defined(ESP8266)
-  if (address == 1) Serial1.end();
+  if (address == 1) {Serial1.flush(); Serial1.end(); }
   #endif
 }
 
@@ -1455,6 +1455,7 @@ object *tf_return (object *args, object *env) {
 }
 
 object *tf_if (object *args, object *env) {
+  if (args == NULL || cdr(args) == NULL) error(PSTR("'if' missing argument(s)"));
   if (eval(first(args), env) != nil) return second(args);
   args = cddr(args);
   return (args != NULL) ? first(args) : nil;
@@ -1463,6 +1464,7 @@ object *tf_if (object *args, object *env) {
 object *tf_cond (object *args, object *env) {
   while (args != NULL) {
     object *clause = first(args);
+    if (!consp(clause)) error2(clause, PSTR("is an illegal clause"));
     object *test = eval(first(clause), env);
     object *forms = cdr(clause);
     if (test != nil) {
@@ -1474,11 +1476,13 @@ object *tf_cond (object *args, object *env) {
 }
 
 object *tf_when (object *args, object *env) {
+  if (args == NULL) error(PSTR("'when' missing argument"));
   if (eval(first(args), env) != nil) return tf_progn(cdr(args),env);
   else return nil;
 }
 
 object *tf_unless (object *args, object *env) {
+  if (args == NULL) error(PSTR("'unless' missing argument"));
   if (eval(first(args), env) != nil) return nil;
   else return tf_progn(cdr(args),env);
 }
@@ -2594,7 +2598,7 @@ object *fn_makunbound (object *args, object *env) {
   (void) env;
   object *key = first(args);
   deletesymbol(key->name);
-  return delassoc(key, &GlobalEnv);
+  return (delassoc(key, &GlobalEnv) != NULL) ? tee : nil;
 }
 
 object *fn_break (object *args, object *env) {
@@ -2868,7 +2872,7 @@ int atomwidth (object *obj) {
 }
 
 boolean quoted (object *obj) {
-  return (consp(obj) && (car(obj)->name == QUOTE) && consp(cdr(obj)) && (cddr(obj) == NULL));
+  return (consp(obj) && car(obj) != NULL && car(obj)->name == QUOTE && consp(cdr(obj)) && cddr(obj) == NULL);
 }
 
 int subwidth (object *obj, int w) {
@@ -2896,9 +2900,9 @@ void superprint (object *form, int lm, pfun_t pfun) {
   else supersub(form, lm + PPINDENT, 1, pfun);
 }
 
-const int ppspecials = 14;
+const int ppspecials = 15;
 const char ppspecial[ppspecials] PROGMEM = 
-  { DOTIMES, DOLIST, IF, SETQ, TEE, LET, LETSTAR, LAMBDA, WHEN, UNLESS, WITHI2C, WITHSERIAL, WITHSPI, WITHSDCARD };
+  { DOTIMES, DOLIST, IF, SETQ, TEE, LET, LETSTAR, LAMBDA, WHEN, UNLESS, WITHI2C, WITHSERIAL, WITHSPI, WITHSDCARD, WITHCLIENT };
 
 void supersub (object *form, int lm, int super, pfun_t pfun) {
   int special = 0, separate = 1;
@@ -3452,7 +3456,7 @@ object *eval (object *form, object *env) {
   yield(); // Needed to avoid Soft WDT Reset
   // Enough space?
   if (End != 0xA5) error(PSTR("Stack overflow"));
-  if (Freespace < 20) gc(form, env);
+  if (Freespace <= WORKSPACESIZE>>4) gc(form, env);
   // Escape
   if (tstflag(ESCAPE)) { clrflag(ESCAPE); error(PSTR("Escape!"));}
   #if defined (serialmonitor)
@@ -3939,7 +3943,7 @@ void setup () {
   initworkspace();
   initenv();
   initsleep();
-  pfstring(PSTR("uLisp 2.4 "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 2.5 "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
@@ -3981,12 +3985,13 @@ void loop () {
     if (autorun == 12) autorunimage();
   }
   // Come here after error
+  delay(100); while (Serial.available()) Serial.read();
   for (int i=0; i<TRACEMAX; i++) TraceDepth[i] = 0;
   #if defined(sdcardsupport)
   SDpfile.close(); SDgfile.close();
   #endif
   #if defined(lisplibrary)
-  loadfromlibrary(NULL);
+  if (!tstflag(LIBRARYLOADED)) { setflag(LIBRARYLOADED); loadfromlibrary(NULL); }
   #endif
   client.stop();
   repl(NULL);
