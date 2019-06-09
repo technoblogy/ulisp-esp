@@ -1,5 +1,5 @@
-/* uLisp ESP Version 2.7 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 20th May 2019
+/* uLisp ESP Version 2.7b - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 9th June 2019
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -991,33 +991,38 @@ inline object *cdrx (object *arg) {
 
 // I2C interface
 
-void I2Cinit(bool enablePullup) {
+void I2Cinit (bool enablePullup) {
   (void) enablePullup;
   Wire.begin();
 }
 
-inline uint8_t I2Cread() {
+inline uint8_t I2Cread () {
   return Wire.read();
 }
 
-inline bool I2Cwrite(uint8_t data) {
+inline bool I2Cwrite (uint8_t data) {
   return Wire.write(data);
 }
 
-bool I2Cstart(uint8_t address, uint8_t read) {
-  if (read == 0) Wire.beginTransmission(address);
-  else Wire.requestFrom(address, I2CCount);
-  return true;
+bool I2Cstart (uint8_t address, uint8_t read) {
+ int ok = true;
+ if (read == 0) {
+   Wire.beginTransmission(address);
+   ok = (Wire.endTransmission(true) == 0);
+   Wire.beginTransmission(address);
+ }
+ else Wire.requestFrom(address, I2CCount);
+ return ok;
 }
 
-bool I2Crestart(uint8_t address, uint8_t read) {
+bool I2Crestart (uint8_t address, uint8_t read) {
   int error = (Wire.endTransmission(false) != 0);
   if (read == 0) Wire.beginTransmission(address);
   else Wire.requestFrom(address, I2CCount);
   return error ? false : true;
 }
 
-void I2Cstop(uint8_t read) {
+void I2Cstop (uint8_t read) {
   if (read == 0) Wire.endTransmission(); // Check for error?
 }
 
@@ -2832,7 +2837,7 @@ object *fn_writeline (object *args, object *env) {
 
 object *fn_restarti2c (object *args, object *env) {
   (void) env;
-  int stream = first(args)->integer;
+  int stream = istream(first(args));
   args = cdr(args);
   int read = 0; // Write
   I2CCount = 0;
@@ -2842,7 +2847,7 @@ object *fn_restarti2c (object *args, object *env) {
     read = (rw != NULL);
   }
   int address = stream & 0xFF;
-  if (stream>>8 != I2CSTREAM) error3(RESTARTI2C, PSTR("not i2c"));
+  if (stream>>8 != I2CSTREAM) error3(RESTARTI2C, PSTR("not an i2c stream"));
   return I2Crestart(address, read) ? tee : nil;
 }
 
