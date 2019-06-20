@@ -1,5 +1,5 @@
-/* uLisp ESP Version 2.7b - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 9th June 2019
+/* uLisp ESP Version 2.7c - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 20th June 2019
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -877,8 +877,11 @@ object *closure (int tc, object *fname, object *state, object *function, object 
   function = cdr(function);
   // Dropframe
   if (tc) {
-    while (*env != NULL && car(*env) != NULL) pop(*env);
-  } else push(nil, *env);
+    if (*env != NULL && car(*env) == NULL) {
+      pop(*env);
+      while (*env != NULL && car(*env) != NULL) pop(*env);
+    } else push(nil, *env);
+  }
   // Push state
   while (state != NULL) {
     object *pair = first(state);
@@ -919,6 +922,7 @@ object *closure (int tc, object *fname, object *state, object *function, object 
   if (args != NULL) error2(fname, PSTR("has too many arguments"));
   if (trace) { pserial(')'); pln(pserial); }
   // Do an implicit progn
+  if (tc) push(nil, *env);
   return tf_progn(function, *env);
 }
 
