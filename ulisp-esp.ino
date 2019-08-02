@@ -3791,7 +3791,7 @@ object *eval (object *form, object *env) {
     return result;
   }
       
-  if (listp(function) && issymbol(car(function), LAMBDA)) {
+  if (consp(function) && issymbol(car(function), LAMBDA)) {
     form = closure(TCstart, fname->name, NULL, cdr(function), args, &env);
     pop(GCStack);
     int trace = tracing(fname->name);
@@ -3809,7 +3809,7 @@ object *eval (object *form, object *env) {
     }
   }
 
-  if (listp(function) && issymbol(car(function), CLOSURE)) {
+  if (consp(function) && issymbol(car(function), CLOSURE)) {
     function = cdr(function);
     form = closure(TCstart, fname->name, car(function), cdr(function), args, &env);
     pop(GCStack);
@@ -3817,7 +3817,7 @@ object *eval (object *form, object *env) {
     goto EVAL;
   } 
   
-  error2((int)fname, PSTR("is an illegal function")); return nil;
+  error(0, PSTR("illegal function"), fname); return nil;
 }
 
 // Print functions
