@@ -1,5 +1,5 @@
-/* uLisp ESP Version 2.8 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 20th July 2019
+/* uLisp ESP Version 2.8a - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 6th August 2019
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -407,7 +407,7 @@ unsigned int saveimage (object *arg) {
     arg = NULL;
   } else if (arg == NULL || listp(arg)) file = SD.open("/ULISP.IMG", FILE_WRITE);
   else error(SAVEIMAGE, PSTR("illegal argument"), arg);
-  if (!file) error(PSTR("problem saving to SD card"));
+  if (!file) error2(SAVEIMAGE, PSTR("problem saving to SD card"));
   SDWriteInt(file, (uintptr_t)arg);
   SDWriteInt(file, imagesize);
   SDWriteInt(file, (uintptr_t)GlobalEnv);
@@ -467,8 +467,8 @@ unsigned int loadimage (object *arg) {
   File file;
   if (stringp(arg)) file = SD.open(MakeFilename(arg));
   else if (arg == NULL) file = SD.open("/ULISP.IMG");
-  else error3(LOADIMAGE, PSTR("illegal argument"));
-  if (!file) error(PSTR("Problem loading from SD card"));
+  else error(LOADIMAGE, PSTR("illegal argument"), arg);
+  if (!file) error2(LOADIMAGE, PSTR("problem loading from SD card"));
   SDReadInt(file);
   int imagesize = SDReadInt(file);
   GlobalEnv = (object *)SDReadInt(file);
@@ -945,12 +945,12 @@ object *apply (symbol_t name, object *function, object *args, object *env) {
     checkargs(fname, args);
     return ((fn_ptr_type)lookupfn(fname))(args, env);
   }
-  if (listp(function) && issymbol(car(function), LAMBDA)) {
+  if (consp(function) && issymbol(car(function), LAMBDA)) {
     function = cdr(function);
     object *result = closure(0, 0, NULL, function, args, &env);
     return eval(result, env);
   }
-  if (listp(function) && issymbol(car(function), CLOSURE)) {
+  if (consp(function) && issymbol(car(function), CLOSURE)) {
     function = cdr(function);
     object *result = closure(0, 0, car(function), cdr(function), args, &env);
     return eval(result, env);
@@ -1513,7 +1513,7 @@ object *sp_withsdcard (object *args, object *env) {
   params = cddr(params);
   SD.begin();
   int mode = 0;
-  if (params != NULL && first(params) != NULL) mode = integer(first(params));
+  if (params != NULL && first(params) != NULL) mode = checkinteger(WITHSDCARD, first(params));
   const char *oflag = FILE_READ;
   if (mode == 1) oflag = FILE_APPEND; else if (mode == 2) oflag = FILE_WRITE;
   if (mode >= 1) {
@@ -3791,7 +3791,7 @@ object *eval (object *form, object *env) {
     return result;
   }
       
-  if (listp(function) && issymbol(car(function), LAMBDA)) {
+  if (consp(function) && issymbol(car(function), LAMBDA)) {
     form = closure(TCstart, fname->name, NULL, cdr(function), args, &env);
     pop(GCStack);
     int trace = tracing(fname->name);
@@ -3809,7 +3809,7 @@ object *eval (object *form, object *env) {
     }
   }
 
-  if (listp(function) && issymbol(car(function), CLOSURE)) {
+  if (consp(function) && issymbol(car(function), CLOSURE)) {
     function = cdr(function);
     form = closure(TCstart, fname->name, car(function), cdr(function), args, &env);
     pop(GCStack);
@@ -3817,7 +3817,7 @@ object *eval (object *form, object *env) {
     goto EVAL;
   } 
   
-  error2((int)fname, PSTR("is an illegal function")); return nil;
+  error(0, PSTR("illegal function"), fname); return nil;
 }
 
 // Print functions
@@ -4058,7 +4058,7 @@ object *nextitem (gfun_t gfun) {
     else if (ch == 'B') base = 2;
     else if (ch == 'O') base = 8;
     else if (ch == 'X') base = 16;
-    else if (ch == 0x07) return (object *)QUO;
+    else if (ch == 0x07) return nextitem(gfun);
     else error2(0, PSTR("Illegal character after #"));
     ch = gfun();
   }
