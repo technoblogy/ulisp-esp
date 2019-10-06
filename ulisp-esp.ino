@@ -27,11 +27,14 @@ const char LispLibrary[] = "";
 #include <EEPROM.h>
 #if defined (ESP8266)
   #include <ESP8266WiFi.h>
+  #if defined(spiffssupport)
+    #include <FS.h>
+  #endif
 #elif defined (ESP32)
   #include <WiFi.h>
-#endif
-#if defined(spiffssupport)
-  #include <FS.h>
+  #if defined(spiffssupport)
+    #include <SPIFFS.h>
+  #endif
 #endif
 
 #if defined(sdcardsupport)
