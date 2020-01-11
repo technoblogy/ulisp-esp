@@ -1,5 +1,5 @@
-/* uLisp ESP Version 3.0a - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 6th December 2019
+/* uLisp ESP Version 3.0b - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 11th January 2020
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -1043,9 +1043,7 @@ void I2Cstop (uint8_t read) {
 // Streams
 
 inline int spiread () { return SPI.transfer(0); }
-#if defined(ESP32) || defined(ESP8266)
 inline int serial1read () { while (!Serial1.available()) testescape(); return Serial1.read(); }
-#endif
 #if defined(sdcardsupport)
 File SDpfile, SDgfile;
 inline int SDread () {
@@ -1071,16 +1069,12 @@ inline int WiFiread () {
 }
 
 void serialbegin (int address, int baud) {
-  #if defined(ESP32) || defined(ESP8266)
   if (address == 1) Serial1.begin((long)baud*100);
   else error(WITHSERIAL, PSTR("port not supported"), number(address));
-  #endif
 }
 
 void serialend (int address) {
-  #if defined(ESP32) || defined(ESP8266)
   if (address == 1) {Serial1.flush(); Serial1.end(); }
-  #endif
 }
 
 gfun_t gstreamfun (object *args) {
@@ -1106,6 +1100,7 @@ gfun_t gstreamfun (object *args) {
 }
 
 inline void spiwrite (char c) { SPI.transfer(c); }
+inline void serial1write (char c) { Serial1.write(c); }
 inline void WiFiwrite (char c) { client.write(c); }
 #if defined(sdcardsupport)
 inline void SDwrite (char c) { SDpfile.write(c); }
@@ -1123,6 +1118,7 @@ pfun_t pstreamfun (object *args) {
   else if (streamtype == SPISTREAM) pfun = spiwrite;
   else if (streamtype == SERIALSTREAM) {
     if (address == 0) pfun = pserial;
+    else if (address == 1) pfun = serial1write;
   }   
   #if defined(sdcardsupport)
   else if (streamtype == SDSTREAM) pfun = (pfun_t)SDwrite;
@@ -2554,6 +2550,7 @@ object *fn_sort (object *args, object *env) {
   push(list,GCStack);
   object *predicate = second(args);
   object *compare = cons(NULL, cons(NULL, NULL));
+  push(compare,GCStack);
   object *ptr = cdr(list);
   while (cdr(ptr) != NULL) {
     object *go = list;
@@ -2570,7 +2567,7 @@ object *fn_sort (object *args, object *env) {
       cdr(go) = obj;
     } else ptr = cdr(ptr);
   }
-  pop(GCStack);
+  pop(GCStack); pop(GCStack);
   return cdr(list);
 }
 
@@ -3724,6 +3721,7 @@ object *eval (object *form, object *env) {
     if ((name == LET) || (name == LETSTAR)) {
       int TCstart = TC;
       object *assigns = first(args);
+      if (!listp(assigns)) error(name, PSTR("first argument is not a list"), assigns);
       object *forms = cdr(args);
       object *newenv = env;
       push(newenv, GCStack);
