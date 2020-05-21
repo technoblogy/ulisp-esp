@@ -199,6 +199,11 @@ void printobject (object *form, pfun_t pfun);
 char *lookupbuiltin (symbol_t name);
 intptr_t lookupfn (symbol_t name);
 int builtin (char* n);
+char *symbolname (symbol_t x);
+object *apply (symbol_t name, object *function, object *args, object *env);
+char *lookupsymbol (symbol_t name);
+char *cstring (object *form, char *buffer, int buflen);
+object *edit (object *fun);
 
 // Error handling
 
