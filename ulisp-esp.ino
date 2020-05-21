@@ -132,7 +132,7 @@ typedef struct sobject {
 typedef object *(*fn_ptr_type)(object *, object *);
 
 typedef struct {
-  const char *string;
+  PGM_P string;
   fn_ptr_type fptr;
   uint8_t minmax;
 } tbl_entry_t;
@@ -147,10 +147,6 @@ typedef int BitOrder;
 #define BUFFERSIZE 34  // Number of bits+2
 
 #if defined(ESP8266)
-  #undef PSTR
-  #undef PROGMEM
-  #define PSTR(s) s
-  #define PROGMEM
   #define WORKSPACESIZE (3072-SDSIZE)       /* Cells (8*bytes) */
   #define EEPROMSIZE 4096                 /* Bytes available for EEPROM */
   #define SYMBOLTABLESIZE 512             /* Bytes */
@@ -1358,7 +1354,7 @@ const int scale[] PROGMEM = {4186,4435,4699,4978,5274,5588,5920,6272,6645,7040,7
 void playnote (int pin, int note, int octave) {
   int prescaler = 8 - octave - note/12;
   if (prescaler<0 || prescaler>8) error(NOTE, PSTR("octave out of range"), number(prescaler));
-  tone(pin, scale[note%12]>>prescaler);
+  tone(pin, pgm_read_word(&scale[note%12])>>prescaler);
 }
 
 void nonote (int pin) {
@@ -1437,7 +1433,7 @@ void supersub (object *form, int lm, int super, pfun_t pfun) {
     int name = arg->name;
     if (name == DEFUN) special = 2;
     else for (int i=0; i<ppspecials; i++) {
-      if (name == ppspecial[i]) { special = 1; break; }
+      if (name == pgm_read_byte(&ppspecial[i])) { special = 1; break; }
     }
   }
   while (form != NULL) {
@@ -4238,7 +4234,7 @@ const tbl_entry_t lookup_table[] PROGMEM = {
 int builtin (char* n) {
   int entry = 0;
   while (entry < ENDFUNCTIONS) {
-    if (strcasecmp(n, (char*)lookup_table[entry].string) == 0)
+    if (strcasecmp_P(n, lookup_table[entry].string) == 0)
       return entry;
     entry++;
   }
@@ -4260,18 +4256,18 @@ int longsymbol (char *buffer) {
 }
 
 intptr_t lookupfn (symbol_t name) {
-  return (intptr_t)lookup_table[name].fptr;
+  return (intptr_t)pgm_read_ptr(&lookup_table[name].fptr);
 }
 
 void checkminmax (symbol_t name, int nargs) {
-  uint8_t minmax = lookup_table[name].minmax;
+  uint8_t minmax = pgm_read_byte(&lookup_table[name].minmax);
   if (nargs<(minmax >> 4)) error2(name, toofewargs);
   if ((minmax & 0x0f) != 0x0f && nargs>(minmax & 0x0f)) error2(name, toomanyargs);
 }
 
 char *lookupbuiltin (symbol_t name) {
   char *buffer = SymbolTop;
-  strcpy(buffer, (char *)lookup_table[name].string);
+  strcpy_P(buffer, lookup_table[name].string);
   return buffer;
 }
 
@@ -4461,8 +4457,8 @@ void pcharacter (char c, pfun_t pfun) {
     pfun('#'); pfun('\\');
     if (c > 32) pfun(c);
     else {
-      const char *p = ControlCodes;
-      while (c > 0) {p = p + strlen(p) + 1; c--; }
+      PGM_P p = ControlCodes;
+      while (c > 0) {p = p + strlen_P(p) + 1; c--; }
       pfstring(p, pfun);
     }
   }
@@ -4487,13 +4483,10 @@ void printstring (object *form, pfun_t pfun) {
   if (tstflag(PRINTREADABLY)) pfun('"');
 }
 
-void pfstring (const char *s, pfun_t pfun) {
-  int p = 0;
-  while (1) {
-    char c = s[p++];
-    if (c == 0) return;
-    pfun(c);
-  }
+void pfstring (PGM_P s, pfun_t pfun) {
+  char str[strlen_P(s)+1];
+  strcpy_P(str, s);
+  pstring(str, pfun);
 }
 
 void pint (int i, pfun_t pfun) {
