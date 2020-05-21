@@ -147,15 +147,17 @@ typedef int BitOrder;
 #define BUFFERSIZE 34  // Number of bits+2
 
 #if defined(ESP8266)
+  #undef PSTR
+  #undef PROGMEM
   #define PSTR(s) s
   #define PROGMEM
-  #define WORKSPACESIZE 3072-SDSIZE       /* Cells (8*bytes) */
+  #define WORKSPACESIZE (3072-SDSIZE)       /* Cells (8*bytes) */
   #define EEPROMSIZE 4096                 /* Bytes available for EEPROM */
   #define SYMBOLTABLESIZE 512             /* Bytes */
   #define SDCARD_SS_PIN 10
 
 #elif defined(ESP32)
-  #define WORKSPACESIZE 8000-SDSIZE       /* Cells (8*bytes) */
+  #define WORKSPACESIZE (8000-SDSIZE)       /* Cells (8*bytes) */
   #define EEPROMSIZE 4096                 /* Bytes available for EEPROM */
   #define SYMBOLTABLESIZE 1024            /* Bytes */
   #define analogWrite(x,y) dacWrite((x),(y))
@@ -714,6 +716,7 @@ float checkintfloat (symbol_t name, object *obj){
   if (integerp(obj)) return obj->integer;
   if (floatp(obj)) return obj->single_float;
   error(name, notanumber, obj);
+  return obj->single_float;
 }
 
 int checkchar (symbol_t name, object *obj) {
@@ -2116,6 +2119,7 @@ object *fn_length (object *args, object *env) {
   if (stringp(arg)) return number(stringlength(arg));
   if (arrayp(arg) && cdr(cddr(arg)) == NULL) return first(cddr(arg));
   error(LENGTH, PSTR("argument is not a list, 1d array, or string"), arg);
+  return nil;
 }
 
 object *fn_arraydimensions (object *args, object *env) {
@@ -2366,6 +2370,7 @@ object *negate (object *arg) {
     else return number(-result);
   } else if (floatp(arg)) return makefloat(-(arg->single_float));
   else error(SUBTRACT, notanumber, arg);
+  return nil;
 }
 
 object *fn_subtract (object *args, object *env) {
@@ -2389,6 +2394,7 @@ object *fn_subtract (object *args, object *env) {
     }
     return number(result);
   } else error(SUBTRACT, notanumber, arg);
+  return nil;
 }
 
 object *multiply_floats (object *args, float fresult) {
@@ -2463,6 +2469,7 @@ object *fn_divide (object *args, object *env) {
     }
     return number(result); 
   } else error(DIVIDE, notanumber, arg);
+  return nil;
 }
 
 object *fn_mod (object *args, object *env) {
@@ -2495,6 +2502,7 @@ object *fn_oneplus (object *args, object *env) {
     if (result == INT_MAX) return makefloat((arg->integer) + 1.0);
     else return number(result + 1);
   } else error(ONEPLUS, notanumber, arg);
+  return nil;
 }
 
 object *fn_oneminus (object *args, object *env) {
@@ -2506,6 +2514,7 @@ object *fn_oneminus (object *args, object *env) {
     if (result == INT_MIN) return makefloat((arg->integer) - 1.0);
     else return number(result - 1);
   } else error(ONEMINUS, notanumber, arg);
+  return nil;
 }
 
 object *fn_abs (object *args, object *env) {
@@ -2517,6 +2526,7 @@ object *fn_abs (object *args, object *env) {
     if (result == INT_MIN) return makefloat(abs((float)result));
     else return number(abs(result));
   } else error(ABS, notanumber, arg);
+  return nil;
 }
 
 object *fn_random (object *args, object *env) {
@@ -2525,6 +2535,7 @@ object *fn_random (object *args, object *env) {
   if (integerp(arg)) return number(random(arg->integer));
   else if (floatp(arg)) return makefloat((float)rand()/(float)(RAND_MAX/(arg->single_float)));
   else error(RANDOM, notanumber, arg);
+  return nil;
 }
 
 object *fn_maxfn (object *args, object *env) {
@@ -2656,6 +2667,7 @@ object *fn_plusp (object *args, object *env) {
   if (floatp(arg)) return ((arg->single_float) > 0.0) ? tee : nil;
   else if (integerp(arg)) return ((arg->integer) > 0) ? tee : nil;
   else error(PLUSP, notanumber, arg);
+  return nil;
 }
 
 object *fn_minusp (object *args, object *env) {
@@ -2664,6 +2676,7 @@ object *fn_minusp (object *args, object *env) {
   if (floatp(arg)) return ((arg->single_float) < 0.0) ? tee : nil;
   else if (integerp(arg)) return ((arg->integer) < 0) ? tee : nil;
   else error(MINUSP, notanumber, arg);
+  return nil;
 }
 
 object *fn_zerop (object *args, object *env) {
@@ -2672,6 +2685,7 @@ object *fn_zerop (object *args, object *env) {
   if (floatp(arg)) return ((arg->single_float) == 0.0) ? tee : nil;
   else if (integerp(arg)) return ((arg->integer) == 0) ? tee : nil;
   else error(ZEROP, notanumber, arg);
+  return nil;
 }
 
 object *fn_oddp (object *args, object *env) {
@@ -3589,8 +3603,8 @@ object *fn_drawpixel (object *args, object *env) {
   if (cddr(args) != NULL) colour = checkinteger(DRAWPIXEL, third(args));
   tft.drawPixel(checkinteger(DRAWPIXEL, first(args)), checkinteger(DRAWPIXEL, second(args)), colour);
   tft.display();
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_drawline (object *args, object *env) {
@@ -3601,8 +3615,8 @@ object *fn_drawline (object *args, object *env) {
   if (args != NULL) colour = checkinteger(DRAWLINE, car(args));
   tft.drawLine(params[0], params[1], params[2], params[3], colour);
   tft.display();
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_drawrect (object *args, object *env) {
@@ -3613,8 +3627,8 @@ object *fn_drawrect (object *args, object *env) {
   if (args != NULL) colour = checkinteger(DRAWRECT, car(args));
   tft.drawRect(params[0], params[1], params[2], params[3], colour);
   tft.display();
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_fillrect (object *args, object *env) {
@@ -3625,8 +3639,8 @@ object *fn_fillrect (object *args, object *env) {
   if (args != NULL) colour = checkinteger(FILLRECT, car(args));
   tft.fillRect(params[0], params[1], params[2], params[3], colour);
   tft.display();
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_drawcircle (object *args, object *env) {
@@ -3637,8 +3651,8 @@ object *fn_drawcircle (object *args, object *env) {
   if (args != NULL) colour = checkinteger(DRAWCIRCLE, car(args));
   tft.drawCircle(params[0], params[1], params[2], colour);
   tft.display();
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_fillcircle (object *args, object *env) {
@@ -3649,8 +3663,8 @@ object *fn_fillcircle (object *args, object *env) {
   if (args != NULL) colour = checkinteger(FILLCIRCLE, car(args));
   tft.fillCircle(params[0], params[1], params[2], colour);
   tft.display();
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_drawroundrect (object *args, object *env) {
@@ -3661,8 +3675,8 @@ object *fn_drawroundrect (object *args, object *env) {
   if (args != NULL) colour = checkinteger(DRAWROUNDRECT, car(args));
   tft.drawRoundRect(params[0], params[1], params[2], params[3], params[4], colour);
   tft.display();
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_fillroundrect (object *args, object *env) {
@@ -3673,8 +3687,8 @@ object *fn_fillroundrect (object *args, object *env) {
   if (args != NULL) colour = checkinteger(FILLROUNDRECT, car(args));
   tft.fillRoundRect(params[0], params[1], params[2], params[3], params[4], colour);
   tft.display();
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_drawtriangle (object *args, object *env) {
@@ -3685,8 +3699,8 @@ object *fn_drawtriangle (object *args, object *env) {
   if (args != NULL) colour = checkinteger(DRAWTRIANGLE, car(args));
   tft.drawTriangle(params[0], params[1], params[2], params[3], params[4], params[5], colour);
   tft.display();
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_filltriangle (object *args, object *env) {
@@ -3697,8 +3711,8 @@ object *fn_filltriangle (object *args, object *env) {
   if (args != NULL) colour = checkinteger(FILLTRIANGLE, car(args));
   tft.fillTriangle(params[0], params[1], params[2], params[3], params[4], params[5], colour);
   tft.display();
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_drawchar (object *args, object *env) {
@@ -3718,16 +3732,16 @@ object *fn_drawchar (object *args, object *env) {
   tft.drawChar(checkinteger(DRAWCHAR, first(args)), checkinteger(DRAWCHAR, second(args)), checkchar(DRAWCHAR, third(args)),
     colour, bg, size);
   tft.display();
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_setcursor (object *args, object *env) {
 #if defined(gfxsupport)
   (void) env;
   tft.setCursor(checkinteger(SETCURSOR, first(args)), checkinteger(SETCURSOR, second(args)));
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_settextcolor (object *args, object *env) {
@@ -3735,24 +3749,24 @@ object *fn_settextcolor (object *args, object *env) {
   (void) env;
   if (cdr(args) != NULL) tft.setTextColor(checkinteger(SETTEXTCOLOR, first(args)), checkinteger(SETTEXTCOLOR, second(args)));
   else tft.setTextColor(checkinteger(SETTEXTCOLOR, first(args)));
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_settextsize (object *args, object *env) {
 #if defined(gfxsupport)
   (void) env;
   tft.setTextSize(checkinteger(SETTEXTSIZE, first(args)));
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_settextwrap (object *args, object *env) {
 #if defined(gfxsupport)
   (void) env;
   tft.setTextWrap(first(args) != NULL);
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_fillscreen (object *args, object *env) {
@@ -3762,8 +3776,8 @@ object *fn_fillscreen (object *args, object *env) {
   if (args != NULL) colour = checkinteger(FILLSCREEN, first(args));
   tft.fillScreen(colour);
   tft.display();
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_setrotation (object *args, object *env) {
@@ -3771,8 +3785,8 @@ object *fn_setrotation (object *args, object *env) {
   (void) env;
   tft.setRotation(checkinteger(SETROTATION, first(args)));
   tft.display();
-  return nil;
 #endif
+  return nil;
 }
 
 object *fn_invertdisplay (object *args, object *env) {
@@ -3780,8 +3794,8 @@ object *fn_invertdisplay (object *args, object *env) {
   (void) env;
   tft.invertDisplay(first(args) != NULL);
   tft.display();
-  return nil;
 #endif
+  return nil;
 }
 
 // Insert your own function definitions here
