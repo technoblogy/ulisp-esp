@@ -5,7 +5,7 @@
 */
 
 // Lisp Library
-const char LispLibrary[] = "";
+const char LispLibrary[] PROGMEM = "";
 
 // Compile options
 
@@ -4625,7 +4625,7 @@ int glibrary () {
     LastChar = 0;
     return temp;
   }
-  char c = LispLibrary[GlobalStringIndex++];
+  char c = pgm_read_byte(&LispLibrary[GlobalStringIndex++]);
   return (c != 0) ? c : -1; // -1?
 }
 
