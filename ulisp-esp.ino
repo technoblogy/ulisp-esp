@@ -1,5 +1,5 @@
 /* uLisp ESP Version 3.3 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - unreleased
+   David Johnson-Davies - www.technoblogy.com - 1st June 2020
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
