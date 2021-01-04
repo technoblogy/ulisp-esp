@@ -1,5 +1,5 @@
-/* uLisp ESP Version 3.3 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 1st June 2020
+/* uLisp ESP Version 3.4 - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 4th January 2021
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -48,6 +48,28 @@ Adafruit_SSD1306 tft(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
   #define SDSIZE 172
 #else
   #define SDSIZE 0
+#endif
+
+// Platform specific settings
+
+#define WORDALIGNED __attribute__((aligned (4)))
+#define BUFFERSIZE 34  // Number of bits+2
+
+#if defined(ESP8266)
+  #define WORKSPACESIZE 4000-SDSIZE       /* Cells (8*bytes) */
+  #define EEPROMSIZE 4096                 /* Bytes available for EEPROM */
+  #define SYMBOLTABLESIZE 512             /* Bytes */
+  #define SDCARD_SS_PIN 10
+
+#elif defined(ESP32)
+  #define WORKSPACESIZE 8000-SDSIZE       /* Cells (8*bytes) */
+  #define EEPROMSIZE 4096                 /* Bytes available for EEPROM */
+  #define SYMBOLTABLESIZE 1024            /* Bytes */
+  #define analogWrite(x,y) dacWrite((x),(y))
+  #define SDCARD_SS_PIN 13
+
+#else
+#error "Board not supported!"
 #endif
 
 // C Macros
@@ -100,26 +122,6 @@ const char stringstream[] PROGMEM = "string";
 const char gfxstream[] PROGMEM = "gfx";
 PGM_P const streamname[] PROGMEM = {serialstream, i2cstream, spistream, sdstream, wifistream, stringstream, gfxstream};
 
-enum function { NIL, TEE, NOTHING, OPTIONAL, INITIALELEMENT, ELEMENTTYPE, BIT, AMPREST, LAMBDA, LET,
-LETSTAR, CLOSURE, SPECIAL_FORMS, QUOTE, DEFUN, DEFVAR, SETQ, LOOP, RETURN, PUSH, POP, INCF, DECF, SETF,
-DOLIST, DOTIMES, TRACE, UNTRACE, FORMILLIS, WITHOUTPUTTOSTRING, WITHSERIAL, WITHI2C, WITHSPI, WITHSDCARD,
-WITHGFX, WITHCLIENT, TAIL_FORMS, PROGN, IF, COND, WHEN, UNLESS, CASE, AND, OR, FUNCTIONS, NOT, NULLFN,
-CONS, ATOM, LISTP, CONSP, SYMBOLP, ARRAYP, BOUNDP, SETFN, STREAMP, EQ, CAR, FIRST, CDR, REST, CAAR, CADR,
-SECOND, CDAR, CDDR, CAAAR, CAADR, CADAR, CADDR, THIRD, CDAAR, CDADR, CDDAR, CDDDR, LENGTH,
-ARRAYDIMENSIONS, LIST, MAKEARRAY, REVERSE, NTH, AREF, ASSOC, MEMBER, APPLY, FUNCALL, APPEND, MAPC, MAPCAR,
-MAPCAN, ADD, SUBTRACT, MULTIPLY, DIVIDE, MOD, ONEPLUS, ONEMINUS, ABS, RANDOM, MAXFN, MINFN, NOTEQ, NUMEQ,
-LESS, LESSEQ, GREATER, GREATEREQ, PLUSP, MINUSP, ZEROP, ODDP, EVENP, INTEGERP, NUMBERP, FLOATFN, FLOATP,
-SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH, EXP, SQRT, LOG, EXPT, CEILING, FLOOR, TRUNCATE, ROUND,
-CHAR, CHARCODE, CODECHAR, CHARACTERP, STRINGP, STRINGEQ, STRINGLESS, STRINGGREATER, SORT, STRINGFN,
-CONCATENATE, SUBSEQ, READFROMSTRING, PRINCTOSTRING, PRIN1TOSTRING, LOGAND, LOGIOR, LOGXOR, LOGNOT, ASH,
-LOGBITP, EVAL, GLOBALS, LOCALS, MAKUNBOUND, BREAK, READ, PRIN1, PRINT, PRINC, TERPRI, READBYTE, READLINE,
-WRITEBYTE, WRITESTRING, WRITELINE, RESTARTI2C, GC, ROOM, SAVEIMAGE, LOADIMAGE, CLS, PINMODE, DIGITALREAD,
-DIGITALWRITE, ANALOGREAD, ANALOGWRITE, DELAY, MILLIS, SLEEP, NOTE, EDIT, PPRINT, PPRINTALL, FORMAT,
-REQUIRE, LISTLIBRARY, AVAILABLE, WIFISERVER, WIFISOFTAP, CONNECTED, WIFILOCALIP, WIFICONNECT, DRAWPIXEL,
-DRAWLINE, DRAWRECT, FILLRECT, DRAWCIRCLE, FILLCIRCLE, DRAWROUNDRECT, FILLROUNDRECT, DRAWTRIANGLE,
-FILLTRIANGLE, DRAWCHAR, SETCURSOR, SETTEXTCOLOR, SETTEXTSIZE, SETTEXTWRAP, FILLSCREEN, SETROTATION,
-INVERTDISPLAY, ENDFUNCTIONS };
-
 // Typedefs
 
 typedef unsigned int symbol_t;
@@ -143,6 +145,7 @@ typedef struct sobject {
 } object;
 
 typedef object *(*fn_ptr_type)(object *, object *);
+typedef void (*mapfun_t)(object *, object **);
 
 typedef struct {
   PGM_P string;
@@ -155,29 +158,37 @@ typedef void (*pfun_t)(char);
 typedef int PinMode;
 typedef int BitOrder;
 
-// Workspace
-#define WORDALIGNED __attribute__((aligned (4)))
-#define BUFFERSIZE 34  // Number of bits+2
-
+enum function { NIL, TEE, NOTHING, OPTIONAL, INITIALELEMENT, ELEMENTTYPE, BIT, AMPREST, LAMBDA, LET,
+LETSTAR, CLOSURE, SPECIAL_FORMS, QUOTE, DEFUN, DEFVAR, SETQ, LOOP, RETURN, PUSH, POP, INCF, DECF, SETF,
+DOLIST, DOTIMES, TRACE, UNTRACE, FORMILLIS, WITHOUTPUTTOSTRING, WITHSERIAL, WITHI2C, WITHSPI, WITHSDCARD,
+WITHGFX, WITHCLIENT, TAIL_FORMS, PROGN, IF, COND, WHEN, UNLESS, CASE, AND, OR, FUNCTIONS, NOT, NULLFN,
+CONS, ATOM, LISTP, CONSP, SYMBOLP, ARRAYP, BOUNDP, SETFN, STREAMP, EQ, CAR, FIRST, CDR, REST, CAAR, CADR,
+SECOND, CDAR, CDDR, CAAAR, CAADR, CADAR, CADDR, THIRD, CDAAR, CDADR, CDDAR, CDDDR, LENGTH,
+ARRAYDIMENSIONS, LIST, MAKEARRAY, REVERSE, NTH, AREF, ASSOC, MEMBER, APPLY, FUNCALL, APPEND, MAPC, MAPCAR,
+MAPCAN, ADD, SUBTRACT, MULTIPLY, DIVIDE, MOD, ONEPLUS, ONEMINUS, ABS, RANDOM, MAXFN, MINFN, NOTEQ, NUMEQ,
+LESS, LESSEQ, GREATER, GREATEREQ, PLUSP, MINUSP, ZEROP, ODDP, EVENP, INTEGERP, NUMBERP, FLOATFN, FLOATP,
+SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH, EXP, SQRT, LOG, EXPT, CEILING, FLOOR, TRUNCATE, ROUND,
+CHAR, CHARCODE, CODECHAR, CHARACTERP, STRINGP, STRINGEQ, STRINGLESS, STRINGGREATER, SORT, STRINGFN,
+CONCATENATE, SUBSEQ, READFROMSTRING, PRINCTOSTRING, PRIN1TOSTRING, LOGAND, LOGIOR, LOGXOR, LOGNOT, ASH,
+LOGBITP, EVAL, GLOBALS, LOCALS, MAKUNBOUND, BREAK, READ, PRIN1, PRINT, PRINC, TERPRI, READBYTE, READLINE,
+WRITEBYTE, WRITESTRING, WRITELINE, RESTARTI2C, GC, ROOM, SAVEIMAGE, LOADIMAGE, CLS, PINMODE, DIGITALREAD,
+DIGITALWRITE, ANALOGREAD, ANALOGREADRESOLUTION, ANALOGWRITE, DELAY, MILLIS, SLEEP, NOTE, EDIT, PPRINT,
+PPRINTALL, FORMAT, REQUIRE, LISTLIBRARY, AVAILABLE, WIFISERVER, WIFISOFTAP, CONNECTED, WIFILOCALIP,
+WIFICONNECT, DRAWPIXEL, DRAWLINE, DRAWRECT, FILLRECT, DRAWCIRCLE, FILLCIRCLE, DRAWROUNDRECT,
+FILLROUNDRECT, DRAWTRIANGLE, FILLTRIANGLE, DRAWCHAR, SETCURSOR, SETTEXTCOLOR, SETTEXTSIZE, SETTEXTWRAP,
+FILLSCREEN, SETROTATION, INVERTDISPLAY, KEYWORDS, 
+K_HIGH, K_LOW,
 #if defined(ESP8266)
-  #define WORKSPACESIZE 4000-SDSIZE       /* Cells (8*bytes) */
-  #define EEPROMSIZE 4096                 /* Bytes available for EEPROM */
-  #define SYMBOLTABLESIZE 512             /* Bytes */
-  #define SDCARD_SS_PIN 10
-
+K_INPUT, K_INPUT_PULLUP, K_OUTPUT,
 #elif defined(ESP32)
-  #define WORKSPACESIZE 8000-SDSIZE       /* Cells (8*bytes) */
-  #define EEPROMSIZE 4096                 /* Bytes available for EEPROM */
-  #define SYMBOLTABLESIZE 1024            /* Bytes */
-  #define analogWrite(x,y) dacWrite((x),(y))
-  #define SDCARD_SS_PIN 13
-
+K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT,
 #endif
+USERFUNCTIONS, ENDFUNCTIONS };
+
+// Global variables
 
 object Workspace[WORKSPACESIZE] WORDALIGNED;
 char SymbolTable[SYMBOLTABLESIZE];
-
-// Global variables
 
 jmp_buf exception;
 unsigned int Freespace = 0;
@@ -223,14 +234,15 @@ void errorsub (symbol_t fname, PGM_P string) {
   if (fname) {
     pserial('\'');
     pstring(symbolname(fname), pserial);
-    pfstring(PSTR("' "), pserial);
+    pserial('\''); pserial(' ');
   }
   pfstring(string, pserial);
 }
 
 void error (symbol_t fname, PGM_P string, object *symbol) {
   errorsub(fname, string);
-  pfstring(PSTR(": "), pserial); printobject(symbol, pserial);
+  pserial(':'); pserial(' ');
+  printobject(symbol, pserial);
   pln(pserial);
   GCStack = NULL;
   longjmp(exception, 1);
@@ -245,6 +257,7 @@ void error2 (symbol_t fname, PGM_P string) {
 
 // Save space as these are used multiple times
 const char notanumber[] PROGMEM = "argument is not a number";
+const char notaninteger[] PROGMEM = "argument is not an integer";
 const char notastring[] PROGMEM = "argument is not a string";
 const char notalist[] PROGMEM = "argument is not a list";
 const char notasymbol[] PROGMEM = "argument is not a symbol";
@@ -254,7 +267,9 @@ const char toofewargs[] PROGMEM = "too few arguments";
 const char noargument[] PROGMEM = "missing argument";
 const char nostream[] PROGMEM = "missing stream argument";
 const char overflow[] PROGMEM = "arithmetic overflow";
+const char indexnegative[] PROGMEM = "index can't be negative";
 const char invalidarg[] PROGMEM = "invalid argument";
+const char invalidkey[] PROGMEM = "invalid keyword";
 const char invalidpin[] PROGMEM = "invalid pin";
 const char resultproper[] PROGMEM = "result is not a proper list";
 const char oddargs[] PROGMEM = "odd number of arguments";
@@ -306,7 +321,7 @@ object *makefloat (float f) {
 object *character (char c) {
   object *ptr = myalloc();
   ptr->type = CHARACTER;
-  ptr->integer = c;
+  ptr->chars = c;
   return ptr;
 }
 
@@ -325,9 +340,9 @@ object *symbol (symbol_t name) {
 }
 
 object *newsymbol (symbol_t name) {
-  for (int i=WORKSPACESIZE-1; i>=0; i--) {
+  for (int i=0; i<WORKSPACESIZE; i++) {
     object *obj = &Workspace[i];
-    if (obj->type == SYMBOL && obj->name == name) return obj;
+    if (symbolp(obj) && obj->name == name) return obj;
   }
   return symbol(name);
 }
@@ -717,12 +732,12 @@ int digitvalue (char d) {
 }
 
 int checkinteger (symbol_t name, object *obj) {
-  if (!integerp(obj)) error(name, notanumber, obj);
+  if (!integerp(obj)) error(name, notaninteger, obj);
   return obj->integer;
 }
 
 int checkbitvalue (symbol_t name, object *obj) {
-  if (!integerp(obj)) error(name, notanumber, obj);
+  if (!integerp(obj)) error(name, notaninteger, obj);
   int n = obj->integer;
   if (n & ~1) error(name, PSTR("argument is not a bit value"), obj);
   return n;
@@ -746,6 +761,20 @@ int isstream (object *obj){
 
 int issymbol (object *obj, symbol_t n) {
   return symbolp(obj) && obj->name == n;
+}
+
+int keywordp (object *obj) {
+  if (!symbolp(obj)) return false;
+  symbol_t name = obj->name;
+  return ((name > KEYWORDS) && (name < USERFUNCTIONS));
+}
+
+int checkkeyword (symbol_t name, object *obj) {
+  if (!keywordp(obj)) error(name, PSTR("argument is not a keyword"), obj);
+  symbol_t kname = obj->name;
+  uint8_t context = getminmax(kname);
+  if (context != 0 && context != name) error(name, invalidkey, obj);
+  return ((int)lookupfn(kname));
 }
 
 void checkargs (symbol_t name, object *args) {
@@ -878,8 +907,8 @@ void rslice (object *array, int size, int slice, object *dims, object *args) {
   int d = first(dims)->integer;
   for (int i = 0; i < d; i++) {
     int index = slice * d + i;
+    if (!consp(args)) error2(0, PSTR("initial contents don't match array type"));
     if (cdr(dims) == NULL) {
-      if (args == NULL) error2(0, PSTR("initial contents don't match array type"));
       object **p = arrayref(array, index, size);
       *p = car(args);
     } else rslice(array, size, index, cdr(dims), car(args));
@@ -892,11 +921,12 @@ object *readarray (int d, object *args) {
   object *dims = NULL; object *head = NULL;
   int size = 1;
   for (int i = 0; i < d; i++) {
+    if (!listp(list)) error2(0, PSTR("initial contents don't match array type"));
     int l = listlength(0, list);
     if (dims == NULL) { dims = cons(number(l), NULL); head = dims; }
     else { cdr(dims) = cons(number(l), NULL); dims = cdr(dims); }
     size = size * l;
-    if (list != NULL) list = car(list);
+    if (list != NULL) list = car(list); 
   }
   object *array = makearray(0, head, NULL, false);
   rslice(array, size, 0, head, args);
@@ -1130,6 +1160,7 @@ object *closure (int tc, symbol_t name, object *state, object *function, object 
     pserial(':'); pserial(' '); pserial('('); pstring(symbolname(name), pserial);
   }
   object *params = first(function);
+  if (!listp(params)) error(name, notalist, params);
   function = cdr(function);
   // Dropframe
   if (tc) {
@@ -1158,7 +1189,7 @@ object *closure (int tc, symbol_t name, object *state, object *function, object 
         var = first(var);
         if (!symbolp(var)) error(name, PSTR("illegal optional parameter"), var);
       } else if (!symbolp(var)) {
-        error2(name, PSTR("illegal parameter"));
+        error2(name, PSTR("illegal function parameter"));
       } else if (var->name == AMPREST) {
         params = cdr(params);
         var = first(params);
@@ -1166,7 +1197,7 @@ object *closure (int tc, symbol_t name, object *state, object *function, object 
         args = NULL;
       } else {
         if (args == NULL) {
-          if (optional) value = nil;
+          if (optional) value = nil; 
           else error2(name, toofewargs);
         } else { value = first(args); args = cdr(args); }
       }
@@ -1185,17 +1216,19 @@ object *closure (int tc, symbol_t name, object *state, object *function, object 
 object *apply (symbol_t name, object *function, object *args, object *env) {
   if (symbolp(function)) {
     symbol_t fname = function->name;
-    checkargs(fname, args);
-    return ((fn_ptr_type)lookupfn(fname))(args, env);
+    if ((fname > FUNCTIONS) && (fname < KEYWORDS)) {
+      checkargs(fname, args);
+      return ((fn_ptr_type)lookupfn(fname))(args, env);
+    } else function = eval(function, env);
   }
   if (consp(function) && issymbol(car(function), LAMBDA)) {
     function = cdr(function);
-    object *result = closure(0, 0, NULL, function, args, &env);
+    object *result = closure(0, name, NULL, function, args, &env);
     return eval(result, env);
   }
   if (consp(function) && issymbol(car(function), CLOSURE)) {
     function = cdr(function);
-    object *result = closure(0, 0, car(function), cdr(function), args, &env);
+    object *result = closure(0, name, car(function), cdr(function), args, &env);
     return eval(result, env);
   }
   error(name, PSTR("illegal function"), function);
@@ -1243,13 +1276,13 @@ object **place (symbol_t name, object *args, object *env, int *bit) {
 
 // Checked car and cdr
 
-inline object *carx (object *arg) {
+object *carx (object *arg) {
   if (!listp(arg)) error(0, PSTR("can't take car"), arg);
   if (arg == nil) return nil;
   return car(arg);
 }
 
-inline object *cdrx (object *arg) {
+object *cdrx (object *arg) {
   if (!listp(arg)) error(0, PSTR("can't take cdr"), arg);
   if (arg == nil) return nil;
   return cdr(arg);
@@ -1262,12 +1295,12 @@ void I2Cinit (bool enablePullup) {
   Wire.begin();
 }
 
-inline int I2Cread () {
+int I2Cread () {
   return Wire.read();
 }
 
-inline bool I2Cwrite (uint8_t data) {
-  return Wire.write(data);
+void I2Cwrite (uint8_t data) {
+  Wire.write(data);
 }
 
 bool I2Cstart (uint8_t address, uint8_t read) {
@@ -1707,7 +1740,7 @@ object *sp_setf (object *args, object *env) {
 // Other special forms
 
 object *sp_dolist (object *args, object *env) {
-  if (args == NULL) error2(DOLIST, noargument);
+  if (args == NULL || listlength(DOLIST, first(args)) < 2) error2(DOLIST, noargument);
   object *params = first(args);
   object *var = first(params);
   object *list = eval(second(params), env);
@@ -1738,7 +1771,7 @@ object *sp_dolist (object *args, object *env) {
 }
 
 object *sp_dotimes (object *args, object *env) {
-  if (args == NULL) error2(DOTIMES, noargument);
+  if (args == NULL || listlength(DOTIMES, first(args)) < 2) error2(DOTIMES, noargument);
   object *params = first(args);
   object *var = first(params);
   int count = checkinteger(DOTIMES, eval(second(params), env));
@@ -1768,8 +1801,10 @@ object *sp_dotimes (object *args, object *env) {
 object *sp_trace (object *args, object *env) {
   (void) env;
   while (args != NULL) {
-      trace(first(args)->name);
-      args = cdr(args);
+    object *var = first(args);
+    if (!symbolp(var)) error(TRACE, notasymbol, var);
+    trace(var->name);
+    args = cdr(args);
   }
   int i = 0;
   while (i < TRACEMAX) {
@@ -1790,7 +1825,9 @@ object *sp_untrace (object *args, object *env) {
     }
   } else {
     while (args != NULL) {
-      untrace(first(args)->name);
+      object *var = first(args);
+      if (!symbolp(var)) error(UNTRACE, notasymbol, var);
+      untrace(var->name);
       args = cdr(args);
     }
   }
@@ -1798,6 +1835,7 @@ object *sp_untrace (object *args, object *env) {
 }
 
 object *sp_formillis (object *args, object *env) {
+  if (args == NULL) error2(FORMILLIS, noargument);
   object *param = first(args);
   unsigned long start = millis();
   unsigned long now, total = 0;
@@ -1812,6 +1850,7 @@ object *sp_formillis (object *args, object *env) {
 }
 
 object *sp_withoutputtostring (object *args, object *env) {
+  if (args == NULL) error2(WITHOUTPUTTOSTRING, noargument);
   object *params = first(args);
   if (params == NULL) error2(WITHOUTPUTTOSTRING, nostream);
   object *var = first(params);
@@ -2204,9 +2243,8 @@ object *fn_length (object *args, object *env) {
   object *arg = first(args);
   if (listp(arg)) return number(listlength(LENGTH, arg));
   if (stringp(arg)) return number(stringlength(arg));
-  if (arrayp(arg) && cdr(cddr(arg)) == NULL) return number(-(first(cddr(arg))->integer));
-  error(LENGTH, PSTR("argument is not a list, 1d array, or string"), arg);
-  return nil;
+  if (!(arrayp(arg) && cdr(cddr(arg)) == NULL)) error(LENGTH, PSTR("argument is not a list, 1d array, or string"), arg);
+  return number(-(first(cddr(arg))->integer));
 }
 
 object *fn_arraydimensions (object *args, object *env) {
@@ -2236,7 +2274,10 @@ object *fn_makearray (object *args, object *env) {
     else error(MAKEARRAY, PSTR("argument not recognised"), var); 
     args = cddr(args);
   }
-  if (bitp) { if (def == nil) def = 0; else def = number(-checkbitvalue(MAKEARRAY, def)); } // 1 becomes all ones
+  if (bitp) {
+    if (def == nil) def = number(0);
+    else def = number(-checkbitvalue(MAKEARRAY, def)); // 1 becomes all ones
+  }
   return makearray(MAKEARRAY, dims, def, bitp);
 }
 
@@ -2255,6 +2296,7 @@ object *fn_reverse (object *args, object *env) {
 object *fn_nth (object *args, object *env) {
   (void) env;
   int n = checkinteger(NTH, first(args));
+  if (n < 0) error(NTH, indexnegative, first(args));
   object *list = second(args);
   while (list != NULL) {
     if (improperp(list)) error(NTH, notproper, list);
@@ -2356,12 +2398,25 @@ object *fn_mapc (object *args, object *env) {
   }
 }
 
-object *fn_mapcar (object *args, object *env) {
+void mapcarfun (object *result, object **tail) {
+  object *obj = cons(result,NULL);
+  cdr(*tail) = obj; *tail = obj;
+}
+
+void mapcanfun (object *result, object **tail) {
+  while (consp(result)) {
+    cdr(*tail) = result; *tail = result;
+    result = cdr(result);
+  }
+  if (result != NULL) error(MAPCAN, resultproper, result);
+}
+
+object *mapcarcan (symbol_t name, object *args, object *env, mapfun_t fun) {
   object *function = first(args);
   args = cdr(args);
   object *params = cons(NULL, NULL);
   push(params,GCStack);
-  object *head = cons(NULL, NULL);
+  object *head = cons(NULL, NULL); 
   push(head,GCStack);
   object *tail = head;
   // Make parameters
@@ -2375,50 +2430,23 @@ object *fn_mapcar (object *args, object *env) {
          pop(GCStack);
          return cdr(head);
       }
-      if (improperp(list)) error(MAPCAR, notproper, list);
+      if (improperp(list)) error(name, notproper, list);
       object *obj = cons(first(list),NULL);
       car(lists) = cdr(list);
       cdr(tailp) = obj; tailp = obj;
       lists = cdr(lists);
     }
-    object *result = apply(MAPCAR, function, cdr(params), env);
-    object *obj = cons(result,NULL);
-    cdr(tail) = obj; tail = obj;
+    object *result = apply(name, function, cdr(params), env);
+    fun(result, &tail);
   }
 }
 
+object *fn_mapcar (object *args, object *env) {
+  return mapcarcan(MAPCAR, args, env, mapcarfun);
+}
+
 object *fn_mapcan (object *args, object *env) {
-  object *function = first(args);
-  args = cdr(args);
-  object *params = cons(NULL, NULL);
-  push(params,GCStack);
-  object *head = cons(NULL, NULL);
-  push(head,GCStack);
-  object *tail = head;
-  // Make parameters
-  while (true) {
-    object *tailp = params;
-    object *lists = args;
-    while (lists != NULL) {
-      object *list = car(lists);
-      if (list == NULL) {
-         pop(GCStack);
-         pop(GCStack);
-         return cdr(head);
-      }
-      if (improperp(list)) error(MAPCAN, notproper, list);
-      object *obj = cons(first(list),NULL);
-      car(lists) = cdr(list);
-      cdr(tailp) = obj; tailp = obj;
-      lists = cdr(lists);
-    }
-    object *result = apply(MAPCAN, function, cdr(params), env);
-    while (consp(result)) {
-      cdr(tail) = result; tail = result;
-      result = cdr(result);
-    }
-    if (result != NULL) error(MAPCAN, resultproper, result);
-  }
+  return mapcarcan(MAPCAN, args, env, mapcanfun);
 }
 
 // Arithmetic functions
@@ -3068,8 +3096,7 @@ object *fn_stringfn (object *args, object *env) {
 object *fn_concatenate (object *args, object *env) {
   (void) env;
   object *arg = first(args);
-  symbol_t name = arg->name;
-  if (name != STRINGFN) error2(CONCATENATE, PSTR("only supports strings"));
+  if (arg->name != STRINGFN) error2(CONCATENATE, PSTR("only supports strings"));
   args = cdr(args);
   object *result = myalloc();
   result->type = STRING;
@@ -3099,6 +3126,7 @@ object *fn_subseq (object *args, object *env) {
   object *arg = first(args);
   if (!stringp(arg)) error(SUBSEQ, notastring, arg);
   int start = checkinteger(SUBSEQ, second(args));
+  if (start < 0) error(SUBSEQ, indexnegative, second(args));
   int end;
   args = cddr(args);
   if (args != NULL) end = checkinteger(SUBSEQ, car(args)); else end = stringlength(arg);
@@ -3369,14 +3397,15 @@ object *fn_pinmode (object *args, object *env) {
   (void) env;
   int pin = checkinteger(PINMODE, first(args));
   PinMode pm = INPUT;
-  object *mode = second(args);
-  if (integerp(mode)) {
-    int nmode = mode->integer;
-    if (nmode == 1) pm = OUTPUT; else if (nmode == 2) pm = INPUT_PULLUP;
+  object *arg = second(args);
+  if (keywordp(arg)) pm = checkkeyword(PINMODE, arg);
+  else if (integerp(arg)) {
+    int mode = arg->integer;
+    if (mode == 1) pm = OUTPUT; else if (mode == 2) pm = INPUT_PULLUP;
     #if defined(INPUT_PULLDOWN)
-    else if (nmode == 4) pm = INPUT_PULLDOWN;
+    else if (mode == 4) pm = INPUT_PULLDOWN;
     #endif
-  } else if (mode != nil) pm = OUTPUT;
+  } else if (arg != nil) pm = OUTPUT;
   pinMode(pin, pm);
   return nil;
 }
@@ -3390,17 +3419,36 @@ object *fn_digitalread (object *args, object *env) {
 object *fn_digitalwrite (object *args, object *env) {
   (void) env;
   int pin = checkinteger(DIGITALWRITE, first(args));
-  object *mode = second(args);
-  if (integerp(mode)) digitalWrite(pin, mode->integer ? HIGH : LOW);
-  else digitalWrite(pin, (mode != nil) ? HIGH : LOW);
-  return mode;
+  object *arg = second(args);
+  int mode;
+  if (keywordp(arg)) mode = checkkeyword(DIGITALWRITE, arg);
+  else if (integerp(arg)) mode = arg->integer ? HIGH : LOW;
+  else mode = (arg != nil) ? HIGH : LOW;
+  digitalWrite(pin, mode);
+  return arg;
 }
 
 object *fn_analogread (object *args, object *env) {
   (void) env;
-  int pin = checkinteger(ANALOGREAD, first(args));
-  checkanalogread(pin);
+  int pin;
+  object *arg = first(args);
+  if (keywordp(arg)) pin = checkkeyword(ANALOGREAD, arg);
+  else {
+    pin = checkinteger(ANALOGREAD, arg);
+    checkanalogread(pin);
+  }
   return number(analogRead(pin));
+}
+
+object *fn_analogreadresolution (object *args, object *env) {
+  (void) env;
+  object *arg = first(args);
+  #if defined(ESP32)
+  analogReadResolution(checkinteger(ANALOGREADRESOLUTION, arg));
+  #else
+  error2(ANALOGREADRESOLUTION, PSTR("not supported"));
+  #endif
+  return arg;
 }
 
 object *fn_analogwrite (object *args, object *env) {
@@ -3479,9 +3527,9 @@ object *fn_pprint (object *args, object *env) {
   (void) env;
   object *obj = first(args);
   pfun_t pfun = pstreamfun(cdr(args));
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   if (pfun == gfxwrite) ppwidth = GFXPPWIDTH;
-#endif
+  #endif
   pln(pfun);
   superprint(obj, 0, pfun);
   ppwidth = PPWIDTH;
@@ -3491,9 +3539,9 @@ object *fn_pprint (object *args, object *env) {
 object *fn_pprintall (object *args, object *env) {
   (void) env;
   pfun_t pfun = pstreamfun(args);
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   if (pfun == gfxwrite) ppwidth = GFXPPWIDTH;
-#endif
+  #endif
   object *globals = GlobalEnv;
   while (globals != NULL) {
     object *pair = first(globals);
@@ -3698,126 +3746,126 @@ object *fn_wificonnect (object *args, object *env) {
 // Graphics functions
 
 object *fn_drawpixel (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t colour = COLOR_WHITE;
   if (cddr(args) != NULL) colour = checkinteger(DRAWPIXEL, third(args));
   tft.drawPixel(checkinteger(DRAWPIXEL, first(args)), checkinteger(DRAWPIXEL, second(args)), colour);
   tft.display();
-#endif
+  #endif
   return nil;
 }
 
 object *fn_drawline (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t params[4], colour = COLOR_WHITE;
   for (int i=0; i<4; i++) { params[i] = checkinteger(DRAWLINE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWLINE, car(args));
   tft.drawLine(params[0], params[1], params[2], params[3], colour);
   tft.display();
-#endif
+  #endif
   return nil;
 }
 
 object *fn_drawrect (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t params[4], colour = COLOR_WHITE;
   for (int i=0; i<4; i++) { params[i] = checkinteger(DRAWRECT, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWRECT, car(args));
   tft.drawRect(params[0], params[1], params[2], params[3], colour);
   tft.display();
-#endif
+  #endif
   return nil;
 }
 
 object *fn_fillrect (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t params[4], colour = COLOR_WHITE;
   for (int i=0; i<4; i++) { params[i] = checkinteger(FILLRECT, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(FILLRECT, car(args));
   tft.fillRect(params[0], params[1], params[2], params[3], colour);
   tft.display();
-#endif
+  #endif
   return nil;
 }
 
 object *fn_drawcircle (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t params[3], colour = COLOR_WHITE;
   for (int i=0; i<3; i++) { params[i] = checkinteger(DRAWCIRCLE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWCIRCLE, car(args));
   tft.drawCircle(params[0], params[1], params[2], colour);
   tft.display();
-#endif
+  #endif
   return nil;
 }
 
 object *fn_fillcircle (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t params[3], colour = COLOR_WHITE;
   for (int i=0; i<3; i++) { params[i] = checkinteger(FILLCIRCLE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(FILLCIRCLE, car(args));
   tft.fillCircle(params[0], params[1], params[2], colour);
   tft.display();
-#endif
+  #endif
   return nil;
 }
 
 object *fn_drawroundrect (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t params[5], colour = COLOR_WHITE;
   for (int i=0; i<5; i++) { params[i] = checkinteger(DRAWROUNDRECT, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWROUNDRECT, car(args));
   tft.drawRoundRect(params[0], params[1], params[2], params[3], params[4], colour);
   tft.display();
-#endif
+  #endif
   return nil;
 }
 
 object *fn_fillroundrect (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t params[5], colour = COLOR_WHITE;
   for (int i=0; i<5; i++) { params[i] = checkinteger(FILLROUNDRECT, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(FILLROUNDRECT, car(args));
   tft.fillRoundRect(params[0], params[1], params[2], params[3], params[4], colour);
   tft.display();
-#endif
+  #endif
   return nil;
 }
 
 object *fn_drawtriangle (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t params[6], colour = COLOR_WHITE;
   for (int i=0; i<6; i++) { params[i] = checkinteger(DRAWTRIANGLE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWTRIANGLE, car(args));
   tft.drawTriangle(params[0], params[1], params[2], params[3], params[4], params[5], colour);
   tft.display();
-#endif
+  #endif
   return nil;
 }
 
 object *fn_filltriangle (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t params[6], colour = COLOR_WHITE;
   for (int i=0; i<6; i++) { params[i] = checkinteger(FILLTRIANGLE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(FILLTRIANGLE, car(args));
   tft.fillTriangle(params[0], params[1], params[2], params[3], params[4], params[5], colour);
   tft.display();
-#endif
+  #endif
   return nil;
 }
 
 object *fn_drawchar (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t colour = COLOR_WHITE, bg = COLOR_BLACK, size = 1;
   object *more = cdr(cddr(args));
@@ -3833,69 +3881,69 @@ object *fn_drawchar (object *args, object *env) {
   tft.drawChar(checkinteger(DRAWCHAR, first(args)), checkinteger(DRAWCHAR, second(args)), checkchar(DRAWCHAR, third(args)),
     colour, bg, size);
   tft.display();
-#endif
+  #endif
   return nil;
 }
 
 object *fn_setcursor (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   tft.setCursor(checkinteger(SETCURSOR, first(args)), checkinteger(SETCURSOR, second(args)));
-#endif
+  #endif
   return nil;
 }
 
 object *fn_settextcolor (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   if (cdr(args) != NULL) tft.setTextColor(checkinteger(SETTEXTCOLOR, first(args)), checkinteger(SETTEXTCOLOR, second(args)));
   else tft.setTextColor(checkinteger(SETTEXTCOLOR, first(args)));
-#endif
+  #endif
   return nil;
 }
 
 object *fn_settextsize (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   tft.setTextSize(checkinteger(SETTEXTSIZE, first(args)));
-#endif
+  #endif
   return nil;
 }
 
 object *fn_settextwrap (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   tft.setTextWrap(first(args) != NULL);
-#endif
+  #endif
   return nil;
 }
 
 object *fn_fillscreen (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   uint16_t colour = COLOR_BLACK;
   if (args != NULL) colour = checkinteger(FILLSCREEN, first(args));
   tft.fillScreen(colour);
   tft.display();
-#endif
+  #endif
   return nil;
 }
 
 object *fn_setrotation (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   tft.setRotation(checkinteger(SETROTATION, first(args)));
   tft.display();
-#endif
+  #endif
   return nil;
 }
 
 object *fn_invertdisplay (object *args, object *env) {
-#if defined(gfxsupport)
+  #if defined(gfxsupport)
   (void) env;
   tft.invertDisplay(first(args) != NULL);
   tft.display();
-#endif
+  #endif
   return nil;
 }
 
@@ -3958,7 +4006,7 @@ const char string51[] PROGMEM = "consp";
 const char string52[] PROGMEM = "symbolp";
 const char string53[] PROGMEM = "arrayp";
 const char string54[] PROGMEM = "boundp";
-const char string55[] PROGMEM = "setfn";
+const char string55[] PROGMEM = "set";
 const char string56[] PROGMEM = "streamp";
 const char string57[] PROGMEM = "eq";
 const char string58[] PROGMEM = "car";
@@ -4083,41 +4131,57 @@ const char string176[] PROGMEM = "pinmode";
 const char string177[] PROGMEM = "digitalread";
 const char string178[] PROGMEM = "digitalwrite";
 const char string179[] PROGMEM = "analogread";
-const char string180[] PROGMEM = "analogwrite";
-const char string181[] PROGMEM = "delay";
-const char string182[] PROGMEM = "millis";
-const char string183[] PROGMEM = "sleep";
-const char string184[] PROGMEM = "note";
-const char string185[] PROGMEM = "edit";
-const char string186[] PROGMEM = "pprint";
-const char string187[] PROGMEM = "pprintall";
-const char string188[] PROGMEM = "format";
-const char string189[] PROGMEM = "require";
-const char string190[] PROGMEM = "list-library";
-const char string191[] PROGMEM = "available";
-const char string192[] PROGMEM = "wifi-server";
-const char string193[] PROGMEM = "wifi-softap";
-const char string194[] PROGMEM = "connected";
-const char string195[] PROGMEM = "wifi-localip";
-const char string196[] PROGMEM = "wifi-connect";
-const char string197[] PROGMEM = "draw-pixel";
-const char string198[] PROGMEM = "draw-line";
-const char string199[] PROGMEM = "draw-rect";
-const char string200[] PROGMEM = "fill-rect";
-const char string201[] PROGMEM = "draw-circle";
-const char string202[] PROGMEM = "fill-circle";
-const char string203[] PROGMEM = "draw-round-rect";
-const char string204[] PROGMEM = "fill-round-rect";
-const char string205[] PROGMEM = "draw-triangle";
-const char string206[] PROGMEM = "fill-triangle";
-const char string207[] PROGMEM = "draw-char";
-const char string208[] PROGMEM = "set-cursor";
-const char string209[] PROGMEM = "set-text-color";
-const char string210[] PROGMEM = "set-text-size";
-const char string211[] PROGMEM = "set-text-wrap";
-const char string212[] PROGMEM = "fill-screen";
-const char string213[] PROGMEM = "set-rotation";
-const char string214[] PROGMEM = "invert-display";
+const char string180[] PROGMEM = "analogreadresolution";
+const char string181[] PROGMEM = "analogwrite";
+const char string182[] PROGMEM = "delay";
+const char string183[] PROGMEM = "millis";
+const char string184[] PROGMEM = "sleep";
+const char string185[] PROGMEM = "note";
+const char string186[] PROGMEM = "edit";
+const char string187[] PROGMEM = "pprint";
+const char string188[] PROGMEM = "pprintall";
+const char string189[] PROGMEM = "format";
+const char string190[] PROGMEM = "require";
+const char string191[] PROGMEM = "list-library";
+const char string192[] PROGMEM = "available";
+const char string193[] PROGMEM = "wifi-server";
+const char string194[] PROGMEM = "wifi-softap";
+const char string195[] PROGMEM = "connected";
+const char string196[] PROGMEM = "wifi-localip";
+const char string197[] PROGMEM = "wifi-connect";
+const char string198[] PROGMEM = "draw-pixel";
+const char string199[] PROGMEM = "draw-line";
+const char string200[] PROGMEM = "draw-rect";
+const char string201[] PROGMEM = "fill-rect";
+const char string202[] PROGMEM = "draw-circle";
+const char string203[] PROGMEM = "fill-circle";
+const char string204[] PROGMEM = "draw-round-rect";
+const char string205[] PROGMEM = "fill-round-rect";
+const char string206[] PROGMEM = "draw-triangle";
+const char string207[] PROGMEM = "fill-triangle";
+const char string208[] PROGMEM = "draw-char";
+const char string209[] PROGMEM = "set-cursor";
+const char string210[] PROGMEM = "set-text-color";
+const char string211[] PROGMEM = "set-text-size";
+const char string212[] PROGMEM = "set-text-wrap";
+const char string213[] PROGMEM = "fill-screen";
+const char string214[] PROGMEM = "set-rotation";
+const char string215[] PROGMEM = "invert-display";
+const char string216[] PROGMEM = "";
+const char string217[] PROGMEM = ":high";
+const char string218[] PROGMEM = ":low";
+#if defined(ESP8266)
+const char string219[] PROGMEM = ":input";
+const char string220[] PROGMEM = ":input-pullup";
+const char string221[] PROGMEM = ":output";
+const char string222[] PROGMEM = "";
+#elif defined(ESP32)
+const char string219[] PROGMEM = ":input";
+const char string220[] PROGMEM = ":input-pullup";
+const char string221[] PROGMEM = ":input-pulldown";
+const char string222[] PROGMEM = ":output";
+const char string223[] PROGMEM = "";
+#endif
 
 // Third parameter is no. of arguments; 1st hex digit is min, 2nd hex digit is max, 0xF is unlimited
 const tbl_entry_t lookup_table[] PROGMEM = {
@@ -4301,41 +4365,57 @@ const tbl_entry_t lookup_table[] PROGMEM = {
   { string177, fn_digitalread, 0x11 },
   { string178, fn_digitalwrite, 0x22 },
   { string179, fn_analogread, 0x11 },
-  { string180, fn_analogwrite, 0x22 },
-  { string181, fn_delay, 0x11 },
-  { string182, fn_millis, 0x00 },
-  { string183, fn_sleep, 0x11 },
-  { string184, fn_note, 0x03 },
-  { string185, fn_edit, 0x11 },
-  { string186, fn_pprint, 0x12 },
-  { string187, fn_pprintall, 0x01 },
-  { string188, fn_format, 0x2F },
-  { string189, fn_require, 0x11 },
-  { string190, fn_listlibrary, 0x00 },
-  { string191, fn_available, 0x11 },
-  { string192, fn_wifiserver, 0x00 },
-  { string193, fn_wifisoftap, 0x04 },
-  { string194, fn_connected, 0x11 },
-  { string195, fn_wifilocalip, 0x00 },
-  { string196, fn_wificonnect, 0x02 },
-  { string197, fn_drawpixel, 0x23 },
-  { string198, fn_drawline, 0x45 },
-  { string199, fn_drawrect, 0x45 },
-  { string200, fn_fillrect, 0x45 },
-  { string201, fn_drawcircle, 0x34 },
-  { string202, fn_fillcircle, 0x34 },
-  { string203, fn_drawroundrect, 0x56 },
-  { string204, fn_fillroundrect, 0x56 },
-  { string205, fn_drawtriangle, 0x67 },
-  { string206, fn_filltriangle, 0x67 },
-  { string207, fn_drawchar, 0x36 },
-  { string208, fn_setcursor, 0x22 },
-  { string209, fn_settextcolor, 0x12 },
-  { string210, fn_settextsize, 0x11 },
-  { string211, fn_settextwrap, 0x11 },
-  { string212, fn_fillscreen, 0x01 },
-  { string213, fn_setrotation, 0x11 },
-  { string214, fn_invertdisplay, 0x11 },
+  { string180, fn_analogreadresolution, 0x11 },
+  { string181, fn_analogwrite, 0x22 },
+  { string182, fn_delay, 0x11 },
+  { string183, fn_millis, 0x00 },
+  { string184, fn_sleep, 0x11 },
+  { string185, fn_note, 0x03 },
+  { string186, fn_edit, 0x11 },
+  { string187, fn_pprint, 0x12 },
+  { string188, fn_pprintall, 0x01 },
+  { string189, fn_format, 0x2F },
+  { string190, fn_require, 0x11 },
+  { string191, fn_listlibrary, 0x00 },
+  { string192, fn_available, 0x11 },
+  { string193, fn_wifiserver, 0x00 },
+  { string194, fn_wifisoftap, 0x04 },
+  { string195, fn_connected, 0x11 },
+  { string196, fn_wifilocalip, 0x00 },
+  { string197, fn_wificonnect, 0x02 },
+  { string198, fn_drawpixel, 0x23 },
+  { string199, fn_drawline, 0x45 },
+  { string200, fn_drawrect, 0x45 },
+  { string201, fn_fillrect, 0x45 },
+  { string202, fn_drawcircle, 0x34 },
+  { string203, fn_fillcircle, 0x34 },
+  { string204, fn_drawroundrect, 0x56 },
+  { string205, fn_fillroundrect, 0x56 },
+  { string206, fn_drawtriangle, 0x67 },
+  { string207, fn_filltriangle, 0x67 },
+  { string208, fn_drawchar, 0x36 },
+  { string209, fn_setcursor, 0x22 },
+  { string210, fn_settextcolor, 0x12 },
+  { string211, fn_settextsize, 0x11 },
+  { string212, fn_settextwrap, 0x11 },
+  { string213, fn_fillscreen, 0x01 },
+  { string214, fn_setrotation, 0x11 },
+  { string215, fn_invertdisplay, 0x11 },
+  { string216, NULL, 0x00 },
+  { string217, (fn_ptr_type)HIGH, DIGITALWRITE },
+  { string218, (fn_ptr_type)LOW, DIGITALWRITE },
+#if defined(ESP8266)
+  { string219, (fn_ptr_type)INPUT, PINMODE },
+  { string220, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string221, (fn_ptr_type)OUTPUT, PINMODE },
+  { string222, NULL, 0x00 },
+#elif defined(ESP32)
+  { string219, (fn_ptr_type)INPUT, PINMODE },
+  { string220, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string221, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string222, (fn_ptr_type)OUTPUT, PINMODE },
+  { string223, NULL, 0x00 },
+#endif
 };
 
 // Table lookup functions
@@ -4368,8 +4448,13 @@ intptr_t lookupfn (symbol_t name) {
   return (intptr_t)pgm_read_ptr(&lookup_table[name].fptr);
 }
 
-void checkminmax (symbol_t name, int nargs) {
+uint8_t getminmax (symbol_t name) {
   uint8_t minmax = pgm_read_byte(&lookup_table[name].minmax);
+  return minmax;
+}
+
+void checkminmax (symbol_t name, int nargs) {
+  uint8_t minmax = getminmax(name);
   if (nargs<(minmax >> 4)) error2(name, toofewargs);
   if ((minmax & 0x0f) != 0x0f && nargs>(minmax & 0x0f)) error2(name, toomanyargs);
 }
@@ -4422,7 +4507,7 @@ object *eval (object *form, object *env) {
     if (pair != NULL) return cdr(pair);
     pair = value(name, GlobalEnv);
     if (pair != NULL) return cdr(pair);
-    else if (name <= ENDFUNCTIONS) return form;
+    else if (name < ENDFUNCTIONS) return form;
     error(0, PSTR("undefined"), form);
   }
 
@@ -4439,6 +4524,7 @@ object *eval (object *form, object *env) {
 
     if ((name == LET) || (name == LETSTAR)) {
       int TCstart = TC;
+      if (args == NULL) error2(name, noargument);
       object *assigns = first(args);
       if (!listp(assigns)) error(name, notalist, assigns);
       object *forms = cdr(args);
@@ -4481,7 +4567,7 @@ object *eval (object *form, object *env) {
       goto EVAL;
     }
 
-    if (name < SPECIAL_FORMS) error2((uintptr_t)function, PSTR("can't be used as a function"));
+    if ((name < SPECIAL_FORMS) || ((name > KEYWORDS) && (name < USERFUNCTIONS))) error2(name, PSTR("can't be used as a function"));
   }
 
   // Evaluate the parameters - result in head
@@ -4514,9 +4600,11 @@ object *eval (object *form, object *env) {
   }
 
   if (consp(function)) {
+    symbol_t name = 0;
+    if (!listp(fname)) name = fname->name;
 
     if (issymbol(car(function), LAMBDA)) {
-      form = closure(TCstart, fname->name, NULL, cdr(function), args, &env);
+      form = closure(TCstart, name, NULL, cdr(function), args, &env);
       pop(GCStack);
       int trace = tracing(fname->name);
       if (trace) {
@@ -4535,7 +4623,7 @@ object *eval (object *form, object *env) {
 
     if (issymbol(car(function), CLOSURE)) {
       function = cdr(function);
-      form = closure(TCstart, fname->name, car(function), cdr(function), args, &env);
+      form = closure(TCstart, name, car(function), cdr(function), args, &env);
       pop(GCStack);
       TC = 1;
       goto EVAL;
@@ -4744,7 +4832,9 @@ void loadfromlibrary (object *env) {
   GlobalStringIndex = 0;
   object *line = read(glibrary);
   while (line != NULL) {
+    push(line, GCStack);
     eval(line, env);
+    pop(GCStack);
     line = read(glibrary);
   }
 }
@@ -4859,8 +4949,6 @@ int gserial () {
   return temp;
 #endif
 }
-
-#define issp(x) (x == ' ' || x == '\n' || x == '\r' || x == '\t')
 
 object *nextitem (gfun_t gfun) {
   int ch = gfun();
@@ -5045,7 +5133,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 3.3 "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 3.4 "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
@@ -5061,7 +5149,7 @@ void repl (object *env) {
       pfstring(PSTR(" : "), pserial);
       pint(BreakLevel, pserial);
     }
-    pfstring(PSTR("> "), pserial);
+    pserial('>'); pserial(' ');
     object *line = read(gserial);
     if (BreakLevel && line == nil) { pln(pserial); return; }
     if (line == (object *)KET) error2(0, PSTR("unmatched right bracket"));
