@@ -17,6 +17,7 @@ const char LispLibrary[] PROGMEM = "";
 // #define lisplibrary
 // #define lineeditor
 // #define vt100
+// #define wdtsupport
 
 // Includes
 
@@ -48,6 +49,10 @@ Adafruit_SSD1306 tft(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
   #define SDSIZE 172
 #else
   #define SDSIZE 0
+#endif
+
+#if defined(wdtsupport)
+#include <esp_task_wdt.h>
 #endif
 
 // Platform specific settings
@@ -174,10 +179,10 @@ CONCATENATE, SUBSEQ, READFROMSTRING, PRINCTOSTRING, PRIN1TOSTRING, LOGAND, LOGIO
 LOGBITP, EVAL, GLOBALS, LOCALS, MAKUNBOUND, BREAK, READ, PRIN1, PRINT, PRINC, TERPRI, READBYTE, READLINE,
 WRITEBYTE, WRITESTRING, WRITELINE, RESTARTI2C, GC, ROOM, SAVEIMAGE, LOADIMAGE, CLS, PINMODE, DIGITALREAD,
 DIGITALWRITE, ANALOGREAD, ANALOGREADRESOLUTION, ANALOGWRITE, DELAY, MILLIS, SLEEP, NOTE, EDIT, PPRINT,
-PPRINTALL, FORMAT, REQUIRE, LISTLIBRARY, AVAILABLE, WIFISERVER, WIFISOFTAP, CONNECTED, WIFILOCALIP,
+PPRINTALL, FORMAT, REQUIRE, LISTLIBRARY, AVAILABLE, WDTINIT, WDTADD, WDTRESET, WIFISERVER, WIFISOFTAP, CONNECTED, WIFILOCALIP,
 WIFICONNECT, DRAWPIXEL, DRAWLINE, DRAWRECT, FILLRECT, DRAWCIRCLE, FILLCIRCLE, DRAWROUNDRECT,
 FILLROUNDRECT, DRAWTRIANGLE, FILLTRIANGLE, DRAWCHAR, SETCURSOR, SETTEXTCOLOR, SETTEXTSIZE, SETTEXTWRAP,
-FILLSCREEN, SETROTATION, INVERTDISPLAY, KEYWORDS, 
+FILLSCREEN, SETROTATION, INVERTDISPLAY, KEYWORDS,
 K_LED_BUILTIN, K_HIGH, K_LOW,
 #if defined(ESP8266)
 K_INPUT, K_INPUT_PULLUP, K_OUTPUT,
@@ -3934,6 +3939,31 @@ object *fn_invertdisplay (object *args, object *env) {
   return nil;
 }
 
+object *fn_wdtinit (object *args, object *env) {
+  #if defined(wdtsupport)
+  int timeout = checkinteger(WDTINIT,first(args));
+  bool panic = second(args) != nil;
+  if (esp_task_wdt_init(timeout,panic) == ESP_OK) return tee;
+  #endif
+  return nil;
+}
+
+object *fn_wdtadd (object *args, object *env) {
+  #if defined(wdtsupport)
+  esp_err_t err = esp_task_wdt_add(NULL);
+  if (err == ESP_OK) return tee;
+  #endif
+  return nil;
+}
+
+object *fn_wdtreset (object *args, object *env) {
+  #if defined(wdtsupport)
+  esp_err_t err = esp_task_wdt_reset();
+  if (err == ESP_OK) return tee;
+  #endif
+  return nil;
+}
+
 // Insert your own function definitions here
 
 // Built-in symbol names
@@ -4155,21 +4185,24 @@ const char string214[] PROGMEM = "set-text-wrap";
 const char string215[] PROGMEM = "fill-screen";
 const char string216[] PROGMEM = "set-rotation";
 const char string217[] PROGMEM = "invert-display";
-const char string218[] PROGMEM = "";
-const char string219[] PROGMEM = ":led-builtin";
-const char string220[] PROGMEM = ":high";
-const char string221[] PROGMEM = ":low";
+const char string218[] PROGMEM = "wdt-init";
+const char string219[] PROGMEM = "wdt-add";
+const char string220[] PROGMEM = "wdt-reset";
+const char string221[] PROGMEM = "";
+const char string222[] PROGMEM = ":led-builtin";
+const char string223[] PROGMEM = ":high";
+const char string224[] PROGMEM = ":low";
 #if defined(ESP8266)
-const char string222[] PROGMEM = ":input";
-const char string223[] PROGMEM = ":input-pullup";
-const char string224[] PROGMEM = ":output";
-const char string225[] PROGMEM = "";
+const char string225[] PROGMEM = ":input";
+const char string226[] PROGMEM = ":input-pullup";
+const char string227[] PROGMEM = ":output";
+const char string228[] PROGMEM = "";
 #elif defined(ESP32)
-const char string222[] PROGMEM = ":input";
-const char string223[] PROGMEM = ":input-pullup";
-const char string224[] PROGMEM = ":input-pulldown";
-const char string225[] PROGMEM = ":output";
-const char string226[] PROGMEM = "";
+const char string225[] PROGMEM = ":input";
+const char string226[] PROGMEM = ":input-pullup";
+const char string227[] PROGMEM = ":input-pulldown";
+const char string228[] PROGMEM = ":output";
+const char string229[] PROGMEM = "";
 #endif
 
 // Insert your own function names here
@@ -4394,21 +4427,24 @@ const tbl_entry_t lookup_table[] PROGMEM = {
   { string215, fn_fillscreen, 0x01 },
   { string216, fn_setrotation, 0x11 },
   { string217, fn_invertdisplay, 0x11 },
-  { string218, NULL, 0x00 },
-  { string219, (fn_ptr_type)LED_BUILTIN, 0 },
-  { string220, (fn_ptr_type)HIGH, DIGITALWRITE },
-  { string221, (fn_ptr_type)LOW, DIGITALWRITE },
+  { string218, fn_wdtinit, 0x22 },
+  { string219, fn_wdtadd, 0x00 },
+  { string220, fn_wdtreset, 0x00 },
+  { string221, NULL, 0x00 },
+  { string222, (fn_ptr_type)LED_BUILTIN, 0 },
+  { string223, (fn_ptr_type)HIGH, DIGITALWRITE },
+  { string224, (fn_ptr_type)LOW, DIGITALWRITE },
 #if defined(ESP8266)
-  { string222, (fn_ptr_type)INPUT, PINMODE },
-  { string223, (fn_ptr_type)INPUT_PULLUP, PINMODE },
-  { string224, (fn_ptr_type)OUTPUT, PINMODE },
-  { string225, NULL, 0x00 },
+  { string225, (fn_ptr_type)INPUT, PINMODE },
+  { string226, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string227, (fn_ptr_type)OUTPUT, PINMODE },
+  { string228, NULL, 0x00 },
 #elif defined(ESP32)
-  { string222, (fn_ptr_type)INPUT, PINMODE },
-  { string223, (fn_ptr_type)INPUT_PULLUP, PINMODE },
-  { string224, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
-  { string225, (fn_ptr_type)OUTPUT, PINMODE },
-  { string226, NULL, 0x00 },
+  { string225, (fn_ptr_type)INPUT, PINMODE },
+  { string226, (fn_ptr_type)INPUT_PULLUP, PINMODE },
+  { string227, (fn_ptr_type)INPUT_PULLDOWN, PINMODE },
+  { string228, (fn_ptr_type)OUTPUT, PINMODE },
+  { string229, NULL, 0x00 },
 #endif
 
 // Insert your own table entries here
