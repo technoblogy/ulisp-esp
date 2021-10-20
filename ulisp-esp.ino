@@ -1,5 +1,5 @@
-/* uLisp ESP Version 4.0a - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 9th July 2021
+/* uLisp ESP Version 4.0b - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 20th October 2021
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -59,12 +59,14 @@ Adafruit_SSD1306 tft(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
   #define WORKSPACESIZE (4000-SDSIZE)     /* Cells (8*bytes) */
   #define EEPROMSIZE 4096                 /* Bytes available for EEPROM */
   #define SDCARD_SS_PIN 10
+  #define LED_BUILTIN 13
 
 #elif defined(ESP32)
   #define WORKSPACESIZE (8000-SDSIZE)     /* Cells (8*bytes) */
   #define EEPROMSIZE 4096                 /* Bytes available for EEPROM */
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
+  #define LED_BUILTIN 13
 
 #else
 #error "Board not supported!"
@@ -622,7 +624,7 @@ void autorunimage () {
   file.close();
   if (autorun != NULL) {
     loadimage(NULL);
-    apply(0, autorun, NULL, NULL);
+    apply(NIL, autorun, NULL, NULL);
   }
 #else
   EEPROM.begin(EEPROMSIZE);
@@ -630,7 +632,7 @@ void autorunimage () {
   object *autorun = (object *)EpromReadInt(&addr);
   if (autorun != NULL && (unsigned int)autorun != 0xFFFF) {
     loadimage(NULL);
-    apply(0, autorun, NULL, NULL);
+    apply(NIL, autorun, NULL, NULL);
   }
 #endif
 }
@@ -3533,7 +3535,7 @@ object *fn_pprintall (object *args, object *env) {
     if (consp(val) && symbolp(car(val)) && builtin(car(val)->name) == LAMBDA) {
       superprint(cons(bsymbol(DEFUN), cons(var, cdr(val))), 0, pfun);
     } else {
-      superprint(cons(bsymbol(DEFVAR), cons(var, cons(quote(val), NULL))), 0, pserial);
+      superprint(cons(bsymbol(DEFVAR), cons(var, cons(quote(val), NULL))), 0, pfun);
     }
     pln(pfun);
     testescape();
