@@ -6,15 +6,17 @@
 
 // Lisp Library
 const char LispLibrary[] PROGMEM = "";
+//  "(load-image)";
+
 
 // Compile options
 
-// #define resetautorun
+#define resetautorun
 #define printfreespace
 // #define printgcs
 // #define sdcardsupport
 // #define gfxsupport
-// #define lisplibrary
+#define lisplibrary
 // #define lineeditor
 // #define vt100
 
@@ -67,6 +69,7 @@ Adafruit_SSD1306 tft(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
   #define SYMBOLTABLESIZE 1024            /* Bytes */
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
+  #include <esp_task_wdt.h>
 
 #else
 #error "Board not supported!"
@@ -183,7 +186,7 @@ K_INPUT, K_INPUT_PULLUP, K_OUTPUT,
 #elif defined(ESP32)
 K_INPUT, K_INPUT_PULLUP, K_INPUT_PULLDOWN, K_OUTPUT,
 #endif
-USERFUNCTIONS, ENDFUNCTIONS };
+USERFUNCTIONS, WDTINIT, WDTADD, WDTRESET, ENDFUNCTIONS };
 
 // Global variables
 
@@ -3734,7 +3737,7 @@ object *fn_wifilocalip (object *args, object *env) {
 object *fn_wificonnect (object *args, object *env) {
   (void) env;
   char ssid[33], pass[65];
-  if (args == NULL) { WiFi.disconnect(true); return nil; }
+  if (args == NULL) { client.stop(); WiFi.disconnect(true); return nil; }
   if (cdr(args) == NULL) WiFi.begin(cstring(first(args), ssid, 33));
   else WiFi.begin(cstring(first(args), ssid, 33), cstring(second(args), pass, 65));
   int result = WiFi.waitForConnectResult();
@@ -3950,6 +3953,26 @@ object *fn_invertdisplay (object *args, object *env) {
 }
 
 // Insert your own function definitions here
+
+object *fn_wdtinit (object *args, object *env) {
+  int timeout = checkinteger(WDTINIT,first(args));
+  bool panic = second(args) != nil;
+  if (esp_task_wdt_init(timeout,panic) == ESP_OK) return tee;
+  return nil;
+}
+
+object *fn_wdtadd (object *args, object *env) {
+  esp_err_t err = esp_task_wdt_add(NULL);
+  if (err == ESP_OK) return tee;
+  return nil;
+}
+
+object *fn_wdtreset (object *args, object *env) {
+  esp_err_t err = esp_task_wdt_reset();
+  if (err == ESP_OK) return tee;
+  return nil;
+}
+
 
 // Built-in symbol names
 const char string0[] PROGMEM = "nil";
@@ -4186,6 +4209,10 @@ const char string223[] PROGMEM = "";
 
 // Insert your own function names here
 
+const char wdtinitstring[] PROGMEM = "wdt-init";
+const char wdtaddstring[] PROGMEM = "wdt-add";
+const char wdtresetstring[] PROGMEM = "wdt-reset";
+
 // Built-in symbol lookup table
 const tbl_entry_t lookup_table[] PROGMEM = {
   { string0, NULL, 0x00 },
@@ -4421,6 +4448,10 @@ const tbl_entry_t lookup_table[] PROGMEM = {
 #endif
 
 // Insert your own table entries here
+
+  { wdtinitstring, fn_wdtinit, 0x22 },
+  { wdtaddstring, fn_wdtadd, 0x00 },
+  { wdtresetstring, fn_wdtreset, 0x00 },
 
 };
 
@@ -5130,7 +5161,7 @@ void initenv () {
 }
 
 void setup () {
-  Serial.begin(9600);
+  Serial.begin(115200);
   int start = millis();
   while ((millis() - start) < 5000) { if (Serial) break; }
   initworkspace();
@@ -5177,6 +5208,9 @@ void loop () {
     #endif
     if (autorun == 12) autorunimage();
   }
+  #if defined(resetautorun)
+    autorunimage();
+  #endif
   // Come here after error
   delay(100); while (Serial.available()) Serial.read();
   clrflag(NOESC); BreakLevel = 0;
