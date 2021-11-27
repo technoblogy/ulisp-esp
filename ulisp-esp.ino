@@ -1,5 +1,5 @@
-/* uLisp ESP Version 4.0 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 7th July 2021
+/* uLisp ESP Version 4.0b - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 20th October 2021
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -66,6 +66,7 @@ Adafruit_SSD1306 tft(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
   #define WORKSPACESIZE (4000-SDSIZE)     /* Cells (8*bytes) */
   #define EEPROMSIZE 4096                 /* Bytes available for EEPROM */
   #define SDCARD_SS_PIN 10
+  #define LED_BUILTIN 13
 
 #elif defined(ESP32)
   #define WORKSPACESIZE (8000-SDSIZE)     /* Cells (8*bytes) */
@@ -73,6 +74,7 @@ Adafruit_SSD1306 tft(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
   #include <esp_task_wdt.h>
+  #define LED_BUILTIN 13
 
 #else
 #error "Board not supported!"
@@ -630,7 +632,7 @@ void autorunimage () {
   file.close();
   if (autorun != NULL) {
     loadimage(NULL);
-    apply(0, autorun, NULL, NULL);
+    apply(NIL, autorun, NULL, NULL);
   }
 #else
   EEPROM.begin(EEPROMSIZE);
@@ -638,7 +640,7 @@ void autorunimage () {
   object *autorun = (object *)EpromReadInt(&addr);
   if (autorun != NULL && (unsigned int)autorun != 0xFFFF) {
     loadimage(NULL);
-    apply(0, autorun, NULL, NULL);
+    apply(NIL, autorun, NULL, NULL);
   }
 #endif
 }
@@ -1231,7 +1233,7 @@ object *closure (int tc, symbol_t name, object *function, object *args, object *
   return tf_progn(function, *env);
 }
 
-object *apply (symbol_t name, object *function, object *args, object *env) {
+object *apply (builtin_t name, object *function, object *args, object *env) {
   if (symbolp(function)) {
     builtin_t fname = builtin(function->name);
     if ((fname > FUNCTIONS) && (fname < KEYWORDS)) {
@@ -1240,15 +1242,15 @@ object *apply (symbol_t name, object *function, object *args, object *env) {
     } else function = eval(function, env);
   }
   if (consp(function) && isbuiltin(car(function), LAMBDA)) {
-    object *result = closure(0, name, function, args, &env);
+    object *result = closure(0, sym(name), function, args, &env);
     return eval(result, env);
   }
   if (consp(function) && isbuiltin(car(function), CLOSURE)) {
     function = cdr(function);
-    object *result = closure(0, name, function, args, &env);
+    object *result = closure(0, sym(name), function, args, &env);
     return eval(result, env);
   }
-  errorsym(name, PSTR("illegal function"), function);
+  error(name, PSTR("illegal function"), function);
   return NULL;
 }
 
@@ -3541,7 +3543,7 @@ object *fn_pprintall (object *args, object *env) {
     if (consp(val) && symbolp(car(val)) && builtin(car(val)->name) == LAMBDA) {
       superprint(cons(bsymbol(DEFUN), cons(var, cdr(val))), 0, pfun);
     } else {
-      superprint(cons(bsymbol(DEFVAR), cons(var, cons(quote(val), NULL))), 0, pserial);
+      superprint(cons(bsymbol(DEFVAR), cons(var, cons(quote(val), NULL))), 0, pfun);
     }
     pln(pfun);
     testescape();
@@ -4725,8 +4727,9 @@ void pradix40 (symbol_t name, pfun_t pfun) {
   uint32_t x = untwist(name);
   for (int d=102400000; d>0; d = d/40) {
     uint32_t j = x/d;
-    pfun(fromradix40(j));
-    x = x - j*d;
+    char c = fromradix40(j);
+    if (c == 0) return;
+    pfun(c); x = x - j*d;
   }
 }
 
