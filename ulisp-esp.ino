@@ -1,5 +1,5 @@
-/* uLisp ESP Version 4.0b - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 20th October 2021
+/* uLisp ESP Version 4.1 - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 18th May 2022
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -61,9 +61,78 @@ Adafruit_SSD1306 tft(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
   #define SDCARD_SS_PIN 10
   #define LED_BUILTIN 13
 
+#elif defined(ARDUINO_FEATHER_ESP32)
+  #define WORKSPACESIZE (9216-SDSIZE)     /* Cells (8*bytes) */
+  #define LITTLEFS
+  #include "FS.h"
+  #include <LittleFS.h>
+  #define analogWrite(x,y) dacWrite((x),(y))
+  #define SDCARD_SS_PIN 13
+
+#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2)
+  #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
+  #define LITTLEFS
+  #include "FS.h"
+  #include <LittleFS.h>
+  #define analogWrite(x,y) dacWrite((x),(y))
+  #define SDCARD_SS_PIN 13
+
+#elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2)
+  #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
+  #define LITTLEFS
+  #include "FS.h"
+  #include <LittleFS.h>
+  #define analogWrite(x,y) dacWrite((x),(y))
+  #define SDCARD_SS_PIN 13
+  #define LED_BUILTIN 13
+
+#elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32C3)
+  #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
+  #define LITTLEFS
+  #include "FS.h"
+  #include <LittleFS.h>
+  #define SDCARD_SS_PIN 13
+  #define LED_BUILTIN 13
+
+#elif defined(ARDUINO_FEATHERS2)          /* UM FeatherS2 */
+  #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
+  #define LITTLEFS
+  #include "FS.h"
+  #include <LittleFS.h>
+  #define analogWrite(x,y) dacWrite((x),(y))
+  #define SDCARD_SS_PIN 13
+  #define LED_BUILTIN 13
+
+#elif defined(ARDUINO_ESP32S2_DEV)
+  #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
+  #define LITTLEFS
+  #include "FS.h"
+  #include <LittleFS.h>
+  #define analogWrite(x,y) dacWrite((x),(y))
+  #define SDCARD_SS_PIN 13
+  #define LED_BUILTIN 13
+
+#elif defined(ARDUINO_ESP32C3_DEV)
+  #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
+  #define LITTLEFS
+  #include "FS.h"
+  #include <LittleFS.h>
+  #define SDCARD_SS_PIN 13
+  #define LED_BUILTIN 13
+
+#elif defined(ARDUINO_ESP32S3_DEV)
+  #define WORKSPACESIZE (22000-SDSIZE)            /* Cells (8*bytes) */
+  #define LITTLEFS
+  #include "FS.h"
+  #include <LittleFS.h>
+  #define SDCARD_SS_PIN 13
+  #define LED_BUILTIN 13
+
 #elif defined(ESP32)
-  #define WORKSPACESIZE (8000-SDSIZE)     /* Cells (8*bytes) */
-  #define EEPROMSIZE 4096                 /* Bytes available for EEPROM */
+  #define WORKSPACESIZE (9216-SDSIZE)     /* Cells (8*bytes) */
+  #define LITTLEFS
+  #include "FS.h"
+  #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
   #define LED_BUILTIN 13
@@ -175,7 +244,7 @@ CHAR, CHARCODE, CODECHAR, CHARACTERP, STRINGP, STRINGEQ, STRINGLESS, STRINGGREAT
 CONCATENATE, SUBSEQ, READFROMSTRING, PRINCTOSTRING, PRIN1TOSTRING, LOGAND, LOGIOR, LOGXOR, LOGNOT, ASH,
 LOGBITP, EVAL, GLOBALS, LOCALS, MAKUNBOUND, BREAK, READ, PRIN1, PRINT, PRINC, TERPRI, READBYTE, READLINE,
 WRITEBYTE, WRITESTRING, WRITELINE, RESTARTI2C, GC, ROOM, SAVEIMAGE, LOADIMAGE, CLS, PINMODE, DIGITALREAD,
-DIGITALWRITE, ANALOGREAD, ANALOGREADRESOLUTION, ANALOGWRITE, DELAY, MILLIS, SLEEP, NOTE, EDIT, PPRINT,
+DIGITALWRITE, ANALOGREAD, ANALOGREADRESOLUTION, ANALOGWRITE, DELAY, MILLIS, SLEEP, NOTE, REGISTER, EDIT, PPRINT,
 PPRINTALL, FORMAT, REQUIRE, LISTLIBRARY, AVAILABLE, WIFISERVER, WIFISOFTAP, CONNECTED, WIFILOCALIP,
 WIFICONNECT, DRAWPIXEL, DRAWLINE, DRAWRECT, FILLRECT, DRAWCIRCLE, FILLCIRCLE, DRAWROUNDRECT,
 FILLROUNDRECT, DRAWTRIANGLE, FILLTRIANGLE, DRAWCHAR, SETCURSOR, SETTEXTCOLOR, SETTEXTSIZE, SETTEXTWRAP,
@@ -522,6 +591,18 @@ int SDReadInt (File file) {
   uintptr_t b2 = file.read(); uintptr_t b3 = file.read();
   return b0 | b1<<8 | b2<<16 | b3<<24;
 }
+#elif defined(LITTLEFS)
+void FSWrite32 (File file, uint32_t data) {
+  union { uint32_t data2; uint8_t u8[4]; };
+  data2 = data;
+  if (file.write(u8, 4) != 4) error2(SAVEIMAGE, PSTR("not enough room"));
+}
+
+uint32_t FSRead32 (File file) {
+  union { uint32_t data; uint8_t u8[4]; };
+  file.read(u8, 4);
+  return data;
+}
 #else
 void EpromWriteInt(int *addr, uintptr_t data) {
   EEPROM.write((*addr)++, data & 0xFF); EEPROM.write((*addr)++, data>>8 & 0xFF);
@@ -536,8 +617,8 @@ int EpromReadInt (int *addr) {
 #endif
 
 unsigned int saveimage (object *arg) {
-  unsigned int imagesize = compactimage(&arg);
 #if defined(sdcardsupport)
+  unsigned int imagesize = compactimage(&arg);
   SD.begin(SDCARD_SS_PIN);
   File file;
   if (stringp(arg)) {
@@ -557,7 +638,32 @@ unsigned int saveimage (object *arg) {
   }
   file.close();
   return imagesize;
-#else
+#elif defined(LITTLEFS)
+  unsigned int imagesize = compactimage(&arg);
+  if (!LittleFS.begin(true)) error2(SAVEIMAGE, PSTR("problem mounting LittleFS"));
+  File file;
+  if (stringp(arg)) {
+    char buffer[BUFFERSIZE];
+    file = LittleFS.open(MakeFilename(arg, buffer), "w");
+    if (!file) error2(SAVEIMAGE, PSTR("problem saving to LittleFS or invalid filename"));
+    arg = NULL;
+  } else if (arg == NULL || listp(arg)) {
+    file = LittleFS.open("/ULISP.IMG", "w");
+    if (!file) error2(SAVEIMAGE, PSTR("problem saving to LittleFS"));
+  } else error(SAVEIMAGE, invalidarg, arg);
+  FSWrite32(file, (uintptr_t)arg);
+  FSWrite32(file, imagesize);
+  FSWrite32(file, (uintptr_t)GlobalEnv);
+  FSWrite32(file, (uintptr_t)GCStack);
+  for (unsigned int i=0; i<imagesize; i++) {
+    object *obj = &Workspace[i];
+    FSWrite32(file, (uintptr_t)car(obj));
+    FSWrite32(file, (uintptr_t)cdr(obj));
+  }
+  file.close();
+  return imagesize;
+#elif defined(EEPROMSIZE)
+  unsigned int imagesize = compactimage(&arg);
   if (!(arg == NULL || listp(arg))) error(SAVEIMAGE, PSTR("illegal argument"), arg);
   int bytesneeded = imagesize*8 + 36;
   if (bytesneeded > EEPROMSIZE) error(SAVEIMAGE, PSTR("image too large"), number(imagesize));
@@ -574,6 +680,10 @@ unsigned int saveimage (object *arg) {
   }
   EEPROM.commit();
   return imagesize;
+#else
+  (void) arg;
+  error2(SAVEIMAGE, PSTR("not available"));
+  return 0;
 #endif
 }
 
@@ -597,7 +707,33 @@ unsigned int loadimage (object *arg) {
   file.close();
   gc(NULL, NULL);
   return imagesize;
-#else
+#elif defined(LITTLEFS)
+  if (!LittleFS.begin()) error2(LOADIMAGE, PSTR("problem mounting LittleFS"));
+  File file;
+  if (stringp(arg)) {
+    char buffer[BUFFERSIZE];
+    file = LittleFS.open(MakeFilename(arg, buffer), "r");
+    if (!file) error2(LOADIMAGE, PSTR("problem loading from LittleFS or invalid filename"));
+  }
+  else if (arg == NULL) {
+    file = LittleFS.open("/ULISP.IMG", "r");
+    if (!file) error2(LOADIMAGE, PSTR("problem loading from LittleFS"));
+  }
+  else error(LOADIMAGE, invalidarg, arg);
+  FSRead32(file);
+  unsigned int imagesize = FSRead32(file);
+  GlobalEnv = (object *)FSRead32(file);
+  GCStack = (object *)FSRead32(file);
+  for (unsigned int i=0; i<imagesize; i++) {
+    object *obj = &Workspace[i];
+    car(obj) = (object *)FSRead32(file);
+    cdr(obj) = (object *)FSRead32(file);
+  }
+  file.close();
+  gc(NULL, NULL);
+  return imagesize;
+#elif defined(EEPROMSIZE)
+  (void) arg;
   EEPROM.begin(EEPROMSIZE);
   int addr = 0;
   EpromReadInt(&addr); // Skip eval address
@@ -612,6 +748,10 @@ unsigned int loadimage (object *arg) {
   }
   gc(NULL, NULL);
   return imagesize;
+#else
+  (void) arg;
+  error2(LOADIMAGE, PSTR("not available"));
+  return 0;
 #endif
 }
 
@@ -626,7 +766,17 @@ void autorunimage () {
     loadimage(NULL);
     apply(NIL, autorun, NULL, NULL);
   }
-#else
+#elif defined(LITTLEFS)
+  if (!LittleFS.begin()) error2(NIL, PSTR("problem mounting LittleFS"));
+  File file = LittleFS.open("/ULISP.IMG", "r");
+  if (!file) error2(NIL, PSTR("problem autorunning from LittleFS"));
+  object *autorun = (object *)FSRead32(file);
+  file.close();
+  if (autorun != NULL) {
+    loadimage(NULL);
+    apply(NIL, autorun, NULL, NULL);
+  }
+#elif defined(EEPROMSIZE)
   EEPROM.begin(EEPROMSIZE);
   int addr = 0;
   object *autorun = (object *)EpromReadInt(&addr);
@@ -634,6 +784,8 @@ void autorunimage () {
     loadimage(NULL);
     apply(NIL, autorun, NULL, NULL);
   }
+#else
+  error2(NIL, PSTR("autorun not available"));
 #endif
 }
 
@@ -867,7 +1019,7 @@ object *makearray (builtin_t name, object *dims, object *def, bool bitp) {
   object *dimensions = dims;
   while (dims != NULL) {
     int d = car(dims)->integer;
-    if (d < 0) error2(MAKEARRAY, PSTR("dimension can't be negative"));
+    if (d < 0) error2(name, PSTR("dimension can't be negative"));
     size = size * d;
     dims = cdr(dims);
   }
@@ -1013,6 +1165,7 @@ void indent (uint8_t spaces, char ch, pfun_t pfun) {
 }
 
 object *startstring (builtin_t name) {
+  (void) name;
   object *string = newstring();
   GlobalString = string;
   GlobalStringTail = string;
@@ -1441,14 +1594,33 @@ void checkanalogread (int pin) {
 #elif defined(ESP32)
   if (!(pin==0 || pin==2 || pin==4 || (pin>=12 && pin<=15) || (pin>=25 && pin<=27) || (pin>=32 && pin<=36) || pin==39))
     error(ANALOGREAD, PSTR("invalid pin"), number(pin));
+#elif defined(ARDUINO_FEATHER_ESP32)
+  if (!(pin==4 || (pin>=12 && pin<=15) || (pin>=25 && pin<=27) || (pin>=32 && pin<=36) || pin==39))
+    error(ANALOGREAD, PSTR("invalid pin"), number(pin));
+#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2)
+  if (!(pin==8 || (pin>=14 && pin<=18))) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
+#elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2)
+  if (!((pin>=5 && pin<=9) || (pin>=16 && pin<=18))) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
+#elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32C3)
+  if (!((pin>=0 && pin<=1) || (pin>=3 && pin<=5))) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
+#elif defined(ARDUINO_FEATHERS2) | defined(ARDUINO_ESP32S2_DEV)
+  if (!((pin>=1 && pin<=20))) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
+#elif defined(ARDUINO_ESP32C3_DEV)
+  if (!((pin>=0 && pin<=5))) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
+#elif defined(ARDUINO_ESP32S3_DEV)
+  if (!((pin>=1 && pin<=20))) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
 #endif
 }
 
 void checkanalogwrite (int pin) {
 #if defined(ESP8266)
   if (!(pin>=0 && pin<=16)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
-#elif defined(ESP32)
+#elif defined(ESP32) | defined(ARDUINO_FEATHER_ESP32)
   if (!(pin>=25 && pin<=26)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
+#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) | defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2) | defined(ARDUINO_FEATHERS2) | defined(ARDUINO_ESP32S2_DEV)
+  if (!(pin>=17 && pin<=18)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
+#elif defined(ARDUINO_ESP32C3_DEV) | defined(ARDUINO_ESP32S3_DEV) | defined(ARDUINO_ADAFRUIT_QTPY_ESP32C3)
+  error2(ANALOGWRITE, PSTR("not supported"));
 #endif
 }
 
@@ -2291,6 +2463,7 @@ object *fn_length (object *args, object *env) {
 }
 
 object *fn_arraydimensions (object *args, object *env) {
+  (void) env;
   object *array = first(args);
   if (!arrayp(array)) error(ARRAYDIMENSIONS, PSTR("argument is not an array"), array);
   object *dimensions = cddr(array);
@@ -2351,6 +2524,7 @@ object *fn_nth (object *args, object *env) {
 }
 
 object *fn_aref (object *args, object *env) {
+  (void) env;
   int bit;
   object *array = first(args);
   if (!arrayp(array)) error(AREF, PSTR("first argument is not an array"), array);
@@ -2773,22 +2947,27 @@ object *compare (builtin_t name, object *args, bool lt, bool gt, bool eq) {
 }
 
 object *fn_numeq (object *args, object *env) {
+  (void) env;
   return compare(NUMEQ, args, false, false, true);
 }
 
 object *fn_less (object *args, object *env) {
+  (void) env;
   return compare(LESS, args, true, false, false);
 }
 
 object *fn_lesseq (object *args, object *env) {
+  (void) env;
   return compare(LESSEQ, args, true, false, true);
 }
 
 object *fn_greater (object *args, object *env) {
+  (void) env;
   return compare(GREATER, args, false, true, false);
 }
 
 object *fn_greatereq (object *args, object *env) {
+  (void) env;
   return compare(GREATEREQ, args, false, true, true);
 }
 
@@ -3477,6 +3656,17 @@ object *fn_note (object *args, object *env) {
   return nil;
 }
 
+object *fn_register (object *args, object *env) {
+  (void) env;
+  object *arg = first(args);
+  int addr;
+  if (keywordp(arg)) addr = checkkeyword(REGISTER, arg);
+  else addr = checkinteger(REGISTER, first(args));
+  if (cdr(args) == NULL) return number(*(uint32_t *)addr);
+  (*(uint32_t *)addr) = checkinteger(REGISTER, second(args));
+  return second(args);
+}
+
 // Tree Editor
 
 object *fn_edit (object *args, object *env) {
@@ -3741,6 +3931,8 @@ object *fn_drawpixel (object *args, object *env) {
   if (cddr(args) != NULL) colour = checkinteger(DRAWPIXEL, third(args));
   tft.drawPixel(checkinteger(DRAWPIXEL, first(args)), checkinteger(DRAWPIXEL, second(args)), colour);
   tft.display();
+  #else
+  (void) args, (void) env;
   #endif
   return nil;
 }
@@ -3753,6 +3945,8 @@ object *fn_drawline (object *args, object *env) {
   if (args != NULL) colour = checkinteger(DRAWLINE, car(args));
   tft.drawLine(params[0], params[1], params[2], params[3], colour);
   tft.display();
+  #else
+  (void) args, (void) env;
   #endif
   return nil;
 }
@@ -3765,6 +3959,8 @@ object *fn_drawrect (object *args, object *env) {
   if (args != NULL) colour = checkinteger(DRAWRECT, car(args));
   tft.drawRect(params[0], params[1], params[2], params[3], colour);
   tft.display();
+  #else
+  (void) args, (void) env;
   #endif
   return nil;
 }
@@ -3777,6 +3973,8 @@ object *fn_fillrect (object *args, object *env) {
   if (args != NULL) colour = checkinteger(FILLRECT, car(args));
   tft.fillRect(params[0], params[1], params[2], params[3], colour);
   tft.display();
+  #else
+  (void) args, (void) env;
   #endif
   return nil;
 }
@@ -3789,6 +3987,8 @@ object *fn_drawcircle (object *args, object *env) {
   if (args != NULL) colour = checkinteger(DRAWCIRCLE, car(args));
   tft.drawCircle(params[0], params[1], params[2], colour);
   tft.display();
+  #else
+  (void) args, (void) env;
   #endif
   return nil;
 }
@@ -3801,6 +4001,8 @@ object *fn_fillcircle (object *args, object *env) {
   if (args != NULL) colour = checkinteger(FILLCIRCLE, car(args));
   tft.fillCircle(params[0], params[1], params[2], colour);
   tft.display();
+  #else
+  (void) args, (void) env;
   #endif
   return nil;
 }
@@ -3813,6 +4015,8 @@ object *fn_drawroundrect (object *args, object *env) {
   if (args != NULL) colour = checkinteger(DRAWROUNDRECT, car(args));
   tft.drawRoundRect(params[0], params[1], params[2], params[3], params[4], colour);
   tft.display();
+  #else
+  (void) args, (void) env;
   #endif
   return nil;
 }
@@ -3825,6 +4029,8 @@ object *fn_fillroundrect (object *args, object *env) {
   if (args != NULL) colour = checkinteger(FILLROUNDRECT, car(args));
   tft.fillRoundRect(params[0], params[1], params[2], params[3], params[4], colour);
   tft.display();
+  #else
+  (void) args, (void) env;
   #endif
   return nil;
 }
@@ -3837,6 +4043,8 @@ object *fn_drawtriangle (object *args, object *env) {
   if (args != NULL) colour = checkinteger(DRAWTRIANGLE, car(args));
   tft.drawTriangle(params[0], params[1], params[2], params[3], params[4], params[5], colour);
   tft.display();
+  #else
+  (void) args, (void) env;
   #endif
   return nil;
 }
@@ -3849,6 +4057,8 @@ object *fn_filltriangle (object *args, object *env) {
   if (args != NULL) colour = checkinteger(FILLTRIANGLE, car(args));
   tft.fillTriangle(params[0], params[1], params[2], params[3], params[4], params[5], colour);
   tft.display();
+  #else
+  (void) args, (void) env;
   #endif
   return nil;
 }
@@ -3870,6 +4080,8 @@ object *fn_drawchar (object *args, object *env) {
   tft.drawChar(checkinteger(DRAWCHAR, first(args)), checkinteger(DRAWCHAR, second(args)), checkchar(DRAWCHAR, third(args)),
     colour, bg, size);
   tft.display();
+  #else
+  (void) args, (void) env;
   #endif
   return nil;
 }
@@ -3878,6 +4090,8 @@ object *fn_setcursor (object *args, object *env) {
   #if defined(gfxsupport)
   (void) env;
   tft.setCursor(checkinteger(SETCURSOR, first(args)), checkinteger(SETCURSOR, second(args)));
+  #else
+  (void) args, (void) env;
   #endif
   return nil;
 }
@@ -3887,6 +4101,8 @@ object *fn_settextcolor (object *args, object *env) {
   (void) env;
   if (cdr(args) != NULL) tft.setTextColor(checkinteger(SETTEXTCOLOR, first(args)), checkinteger(SETTEXTCOLOR, second(args)));
   else tft.setTextColor(checkinteger(SETTEXTCOLOR, first(args)));
+  #else
+  (void) args, (void) env;
   #endif
   return nil;
 }
@@ -3895,6 +4111,8 @@ object *fn_settextsize (object *args, object *env) {
   #if defined(gfxsupport)
   (void) env;
   tft.setTextSize(checkinteger(SETTEXTSIZE, first(args)));
+  #else
+  (void) args, (void) env;
   #endif
   return nil;
 }
@@ -3903,6 +4121,8 @@ object *fn_settextwrap (object *args, object *env) {
   #if defined(gfxsupport)
   (void) env;
   tft.setTextWrap(first(args) != NULL);
+  #else
+  (void) args, (void) env;
   #endif
   return nil;
 }
@@ -3914,6 +4134,8 @@ object *fn_fillscreen (object *args, object *env) {
   if (args != NULL) colour = checkinteger(FILLSCREEN, first(args));
   tft.fillScreen(colour);
   tft.display();
+  #else
+  (void) args, (void) env;
   #endif
   return nil;
 }
@@ -3923,6 +4145,8 @@ object *fn_setrotation (object *args, object *env) {
   (void) env;
   tft.setRotation(checkinteger(SETROTATION, first(args)));
   tft.display();
+  #else
+  (void) args, (void) env;
   #endif
   return nil;
 }
@@ -3932,6 +4156,8 @@ object *fn_invertdisplay (object *args, object *env) {
   (void) env;
   tft.invertDisplay(first(args) != NULL);
   tft.display();
+  #else
+  (void) args, (void) env;
   #endif
   return nil;
 }
@@ -4127,6 +4353,7 @@ const char string184[] PROGMEM = "delay";
 const char string185[] PROGMEM = "millis";
 const char string186[] PROGMEM = "sleep";
 const char string187[] PROGMEM = "note";
+const char string187a[] PROGMEM = "register";
 const char string188[] PROGMEM = "edit";
 const char string189[] PROGMEM = "pprint";
 const char string190[] PROGMEM = "pprintall";
@@ -4366,6 +4593,7 @@ const tbl_entry_t lookup_table[] PROGMEM = {
   { string185, fn_millis, 0x00 },
   { string186, fn_sleep, 0x11 },
   { string187, fn_note, 0x03 },
+  { string187a, fn_register, 0x12 },
   { string188, fn_edit, 0x11 },
   { string189, fn_pprint, 0x12 },
   { string190, fn_pprintall, 0x01 },
@@ -4450,10 +4678,19 @@ void testescape () {
 
 // Main evaluator
 
+
 object *eval (object *form, object *env) {
+  static unsigned long start = 0;
   int TC=0;
   EVAL:
-  yield(); // Needed on ESP8266 to avoid Soft WDT Reset
+#if defined(ESP8266)
+  (void) start;
+  yield();  // Needed on ESP8266 to avoid Soft WDT Reset
+#elif defined(ARDUINO_ESP32C3_DEV)
+  if (millis() - start > 4000) { delay(1); start = millis(); }
+#else
+  (void) start;
+#endif
   // Enough space?
   if (Freespace <= WORKSPACESIZE>>4) gc(form, env);
   // Escape
@@ -4934,7 +5171,7 @@ int gserial () {
   return '\n';
 #else
   unsigned long start = millis();
-  while (!Serial.available()) if (millis() - start > 1000) clrflag(NOECHO);
+  while (!Serial.available()) { delay(1); if (millis() - start > 1000) clrflag(NOECHO); }
   char temp = Serial.read();
   if (temp != '\n' && !tstflag(NOECHO)) pserial(temp);
   return temp;
