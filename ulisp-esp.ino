@@ -1,5 +1,5 @@
-/* uLisp ESP Version 4.3 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 15th September 2022
+/* uLisp ESP Version 4.3a - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 25th September 2022
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -173,6 +173,7 @@ Adafruit_SSD1306 tft(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
 #define tstflag(x)         (Flags & 1<<(x))
 
 #define issp(x)            (x == ' ' || x == '\n' || x == '\r' || x == '\t')
+#define isbr(x)            (x == ')' || x == '(' || x == '"' || x == '#')
 #define longsymbolp(x)     (((x)->name & 0x03) == 0)
 #define twist(x)           ((uint32_t)((x)<<2) | (((x) & 0xC0000000)>>30))
 #define untwist(x)         (((x)>>2 & 0x3FFFFFFF) | ((x) & 0x03)<<30)
@@ -634,11 +635,14 @@ unsigned int saveimage (object *arg) {
   SD.begin(SDCARD_SS_PIN);
   File file;
   if (stringp(arg)) {
-    file = SD.open(MakeFilename(arg), FILE_WRITE);
+    char buffer[BUFFERSIZE];
+    file = SD.open(MakeFilename(arg, buffer), FILE_WRITE);
+    if (!file) error2(SAVEIMAGE, PSTR("problem saving to SD card or invalid filename"));
     arg = NULL;
-  } else if (arg == NULL || listp(arg)) file = SD.open("/ULISP.IMG", FILE_WRITE);
-  else error(SAVEIMAGE, PSTR("illegal argument"), arg);
-  if (!file) error2(SAVEIMAGE, PSTR("problem saving to SD card"));
+  } else if (arg == NULL || listp(arg)) {
+    file = SD.open("/ULISP.IMG", FILE_WRITE);
+    if (!file) error2(SAVEIMAGE, PSTR("problem saving to SD card"));
+  } else error(SAVEIMAGE, invalidarg, arg);
   SDWriteInt(file, (uintptr_t)arg);
   SDWriteInt(file, imagesize);
   SDWriteInt(file, (uintptr_t)GlobalEnv);
@@ -703,10 +707,14 @@ unsigned int loadimage (object *arg) {
 #if defined(sdcardsupport)
   SD.begin(SDCARD_SS_PIN);
   File file;
-  if (stringp(arg)) file = SD.open(MakeFilename(arg));
-  else if (arg == NULL) file = SD.open("/ULISP.IMG");
-  else error(LOADIMAGE, PSTR("illegal argument"), arg);
-  if (!file) error2(LOADIMAGE, PSTR("problem loading from SD card"));
+  if (stringp(arg)) {
+    char buffer[BUFFERSIZE];
+    file = SD.open(MakeFilename(arg, buffer));
+    if (!file) error2(LOADIMAGE, PSTR("problem loading from SD card or invalid filename"));
+  } else if (arg == NULL) {
+    file = SD.open("/ULISP.IMG");
+    if (!file) error2(LOADIMAGE, PSTR("problem loading from SD card"));
+  } else error(LOADIMAGE, invalidarg, arg);
   SDReadInt(file);
   unsigned int imagesize = SDReadInt(file);
   GlobalEnv = (object *)SDReadInt(file);
@@ -1200,7 +1208,7 @@ object *readbitarray (gfun_t gfun) {
   char ch = gfun();
   object *head = NULL;
   object *tail = NULL;
-  while (!issp(ch) && ch != ')' && ch != '(') {
+  while (!issp(ch) && !isbr(ch)) {
     if (ch != '0' && ch != '1') error2(NIL, PSTR("illegal character in bit array"));
     object *cell = cons(number(ch - '0'), NULL);
     if (head == NULL) head = cell;
@@ -1210,7 +1218,7 @@ object *readbitarray (gfun_t gfun) {
   }
   LastChar = ch;
   int size = listlength(NIL, head);
-  object *array = makearray(NIL, cons(number(size), NULL), 0, true);
+  object *array = makearray(MAKEARRAY, cons(number(size), NULL), number(0), true);
   size = (size + sizeof(int)*8 - 1)/(sizeof(int)*8);
   int index = 0;
   while (head != NULL) {
@@ -1419,7 +1427,7 @@ char *cstring (builtin_t name, object *form, char *buffer, int buflen) {
   return buffer;
 }
 
-IPAddress ipstring (builtin_t name, object *form) {
+uint32_t ipstring (builtin_t name, object *form) {
   form = cdr(checkstring(name, form));
   int p = 0;
   union { uint32_t ipaddress; uint8_t ipbytes[4]; } ;
@@ -2379,9 +2387,12 @@ object *sp_withspi (object *args, object *env) {
 object *sp_withsdcard (object *args, object *env) {
 #if defined(sdcardsupport)
   object *params = first(args);
+  if (params == NULL) error2(WITHSDCARD, nostream);
   object *var = first(params);
-  object *filename = eval(second(params), env);
-  params = cddr(params);
+  params = cdr(params);
+  if (params == NULL) error2(WITHSDCARD, PSTR("no filename specified"));
+  object *filename = eval(first(params), env);
+  params = cdr(params);
   SD.begin();
   int mode = 0;
   if (params != NULL && first(params) != NULL) mode = checkinteger(WITHSDCARD, first(params));
@@ -3395,7 +3406,9 @@ object *fn_readfromstring (object *args, object *env) {
   object *arg = checkstring(READFROMSTRING, first(args));
   GlobalString = arg;
   GlobalStringIndex = 0;
-  return read(gstr);
+  object *val = read(gstr);
+  LastChar = 0;
+  return val;
 }
 
 object *fn_princtostring (object *args, object *env) {
@@ -3822,7 +3835,7 @@ object *fn_format (object *args, object *env) {
   int len = stringlength(formatstr);
   uint8_t n = 0, width = 0, w, bra = 0;
   char pad = ' ';
-  bool tilde = false, mute = false, comma, quote;
+  bool tilde = false, mute = false, comma = false, quote = false;
   while (n < len) {
     char ch = nthchar(formatstr, n);
     char ch2 = ch & ~0x20; // force to upper case
@@ -4904,7 +4917,7 @@ const char doc191[] PROGMEM = "(pprint item [str])\n"
 "If str is specified it prints to the specified stream. It returns no value.";
 const char doc192[] PROGMEM = "(pprintall [str])\n"
 "Pretty-prints the definition of every function and variable defined in the uLisp workspace.\n"
-"Is str is specified it prints to the specified stream. It returns no value.";
+"If str is specified it prints to the specified stream. It returns no value.";
 const char doc193[] PROGMEM = "(format output controlstring arguments*)\n"
 "Outputs its arguments formatted according to the format directives in controlstring.";
 const char doc194[] PROGMEM = "(require 'symbol)\n"
@@ -5802,7 +5815,7 @@ object *nextitem (gfun_t gfun) {
     char ch2 = ch & ~0x20; // force to upper case
     if (ch == '\\') { // Character
       base = 0; ch = gfun();
-      if (issp(ch) || ch == ')' || ch == '(') return character(ch);
+      if (issp(ch) || isbr(ch)) return character(ch);
       else LastChar = ch;
     } else if (ch == '|') {
       do { while (gfun() != '|'); }
@@ -5831,7 +5844,7 @@ object *nextitem (gfun_t gfun) {
   buffer[2] = '\0'; buffer[3] = '\0'; buffer[4] = '\0'; buffer[5] = '\0'; // In case symbol is < 5 letters
   float divisor = 10.0;
 
-  while(!issp(ch) && ch != ')' && ch != '(' && index < bufmax) {
+  while(!issp(ch) && !isbr(ch) && index < bufmax) {
     buffer[index++] = ch;
     if (base == 10 && ch == '.' && !isexponent) {
       isfloat = true;
@@ -5859,7 +5872,7 @@ object *nextitem (gfun_t gfun) {
   }
 
   buffer[index] = '\0';
-  if (ch == ')' || ch == '(') LastChar = ch;
+  if (isbr(ch)) LastChar = ch;
   if (isfloat && valid == 1) return makefloat(fresult * sign * pow(10, exponent * esign));
   else if (valid == 1) {
     if (base == 10 && result > ((unsigned int)INT_MAX+(1-sign)/2))
@@ -5942,7 +5955,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.3 "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.3a "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
