@@ -1,5 +1,5 @@
-/* uLisp ESP Version 4.3a - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 25th September 2022
+/* uLisp ESP Version 4.3b - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 8th March 2023
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -33,14 +33,16 @@ const char LispLibrary[] PROGMEM = "";
 #endif
 
 #if defined(gfxsupport)
+#define COLOR_WHITE ST77XX_WHITE
+#define COLOR_BLACK ST77XX_BLACK
 #include <Adafruit_GFX.h>    // Core graphics library
-#include <Adafruit_SSD1306.h>
-#define COLOR_WHITE 1
-#define COLOR_BLACK 0
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
-#define OLED_RESET     4
-Adafruit_SSD1306 tft(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
+#include <Adafruit_ST7789.h> // Hardware-specific library for ST7789
+#if defined(ARDUINO_ESP32_DEV)
+Adafruit_ST7789 tft = Adafruit_ST7789(5, 16, 19, 18);
+#define TFT_BACKLITE 4
+#else
+Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
+#endif
 #endif
 
 #if defined(sdcardsupport)
@@ -69,7 +71,7 @@ Adafruit_SSD1306 tft(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
 
-#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2)
+#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2_TFT)
   #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
   #define LITTLEFS
   #include "FS.h"
@@ -94,7 +96,16 @@ Adafruit_SSD1306 tft(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
   #define SDCARD_SS_PIN 13
   #define LED_BUILTIN 13
 
-#elif defined(ARDUINO_FEATHERS2)          /* UM FeatherS2 */
+#elif defined(ARDUINO_FEATHERS2)                 /* UM FeatherS2 */
+  #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
+  #define LITTLEFS
+  #include "FS.h"
+  #include <LittleFS.h>
+  #define analogWrite(x,y) dacWrite((x),(y))
+  #define SDCARD_SS_PIN 13
+  #define LED_BUILTIN 13
+
+#elif defined(ARDUINO_ESP32_DEV)                 /* For TTGO T-Display */
   #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
   #define LITTLEFS
   #include "FS.h"
@@ -1771,7 +1782,7 @@ inline void WiFiwrite (char c) { client.write(c); }
 inline void SDwrite (char c) { SDpfile.write(c); }
 #endif
 #if defined(gfxsupport)
-inline void gfxwrite (char c) { tft.write(c); tft.display(); }
+inline void gfxwrite (char c) { tft.write(c); }
 #endif
 
 pfun_t pstreamfun (object *args) {
@@ -1807,19 +1818,19 @@ pfun_t pstreamfun (object *args) {
 void checkanalogread (int pin) {
 #if defined(ESP8266)
   if (pin!=17) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
-#elif defined(ESP32)
+#elif defined(ESP32) || defined(ARDUINO_ESP32_DEV)
   if (!(pin==0 || pin==2 || pin==4 || (pin>=12 && pin<=15) || (pin>=25 && pin<=27) || (pin>=32 && pin<=36) || pin==39))
     error(ANALOGREAD, PSTR("invalid pin"), number(pin));
 #elif defined(ARDUINO_FEATHER_ESP32)
   if (!(pin==4 || (pin>=12 && pin<=15) || (pin>=25 && pin<=27) || (pin>=32 && pin<=36) || pin==39))
     error(ANALOGREAD, PSTR("invalid pin"), number(pin));
-#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2)
+#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2_TFT)
   if (!(pin==8 || (pin>=14 && pin<=18))) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2)
   if (!((pin>=5 && pin<=9) || (pin>=16 && pin<=18))) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32C3)
   if (!((pin>=0 && pin<=1) || (pin>=3 && pin<=5))) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
-#elif defined(ARDUINO_FEATHERS2) | defined(ARDUINO_ESP32S2_DEV)
+#elif defined(ARDUINO_FEATHERS2) || defined(ARDUINO_ESP32S2_DEV)
   if (!((pin>=1 && pin<=20))) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
 #elif defined(ARDUINO_ESP32C3_DEV)
   if (!((pin>=0 && pin<=5))) error(ANALOGREAD, PSTR("invalid pin"), number(pin));
@@ -1830,12 +1841,11 @@ void checkanalogread (int pin) {
 
 void checkanalogwrite (int pin) {
 #if defined(ESP8266)
-  if (!(pin>=0 && pin<=16)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
-#elif defined(ESP32) | defined(ARDUINO_FEATHER_ESP32)
+#elif defined(ESP32) || defined(ARDUINO_FEATHER_ESP32) || defined(ARDUINO_ESP32_DEV)
   if (!(pin>=25 && pin<=26)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
-#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) | defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2) | defined(ARDUINO_FEATHERS2) | defined(ARDUINO_ESP32S2_DEV)
+#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2_TFT) || defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2) || defined(ARDUINO_FEATHERS2) || defined(ARDUINO_ESP32S2_DEV)
   if (!(pin>=17 && pin<=18)) error(ANALOGWRITE, PSTR("invalid pin"), number(pin));
-#elif defined(ARDUINO_ESP32C3_DEV) | defined(ARDUINO_ESP32S3_DEV) | defined(ARDUINO_ADAFRUIT_QTPY_ESP32C3)
+#elif defined(ARDUINO_ESP32C3_DEV) || defined(ARDUINO_ESP32S3_DEV) || defined(ARDUINO_ADAFRUIT_QTPY_ESP32C3)
   error2(ANALOGWRITE, PSTR("not supported"));
 #endif
 }
@@ -2132,7 +2142,7 @@ object *sp_decf (object *args, object *env) {
     if (dec == NULL) decrement = 1.0; else decrement = checkintfloat(DECF, dec);
 
     *loc = makefloat(value - decrement);
-  } if (integerp(x) && (integerp(dec) || dec == NULL)) {
+  } else if (integerp(x) && (integerp(dec) || dec == NULL)) {
     int decrement;
     int value = x->integer;
 
@@ -4007,147 +4017,137 @@ object *fn_wificonnect (object *args, object *env) {
 // Graphics functions
 
 object *fn_drawpixel (object *args, object *env) {
-  #if defined(gfxsupport)
   (void) env;
+  #if defined(gfxsupport)
   uint16_t colour = COLOR_WHITE;
   if (cddr(args) != NULL) colour = checkinteger(DRAWPIXEL, third(args));
   tft.drawPixel(checkinteger(DRAWPIXEL, first(args)), checkinteger(DRAWPIXEL, second(args)), colour);
-  tft.display();
   #else
-  (void) args, (void) env;
+  (void) args;
   #endif
   return nil;
 }
 
 object *fn_drawline (object *args, object *env) {
-  #if defined(gfxsupport)
   (void) env;
+  #if defined(gfxsupport)
   uint16_t params[4], colour = COLOR_WHITE;
   for (int i=0; i<4; i++) { params[i] = checkinteger(DRAWLINE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWLINE, car(args));
   tft.drawLine(params[0], params[1], params[2], params[3], colour);
-  tft.display();
   #else
-  (void) args, (void) env;
+  (void) args;
   #endif
   return nil;
 }
 
 object *fn_drawrect (object *args, object *env) {
-  #if defined(gfxsupport)
   (void) env;
+  #if defined(gfxsupport)
   uint16_t params[4], colour = COLOR_WHITE;
   for (int i=0; i<4; i++) { params[i] = checkinteger(DRAWRECT, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWRECT, car(args));
   tft.drawRect(params[0], params[1], params[2], params[3], colour);
-  tft.display();
   #else
-  (void) args, (void) env;
+  (void) args;
   #endif
   return nil;
 }
 
 object *fn_fillrect (object *args, object *env) {
-  #if defined(gfxsupport)
   (void) env;
+  #if defined(gfxsupport)
   uint16_t params[4], colour = COLOR_WHITE;
   for (int i=0; i<4; i++) { params[i] = checkinteger(FILLRECT, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(FILLRECT, car(args));
   tft.fillRect(params[0], params[1], params[2], params[3], colour);
-  tft.display();
   #else
-  (void) args, (void) env;
+  (void) args;
   #endif
   return nil;
 }
 
 object *fn_drawcircle (object *args, object *env) {
-  #if defined(gfxsupport)
   (void) env;
+  #if defined(gfxsupport)
   uint16_t params[3], colour = COLOR_WHITE;
   for (int i=0; i<3; i++) { params[i] = checkinteger(DRAWCIRCLE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWCIRCLE, car(args));
   tft.drawCircle(params[0], params[1], params[2], colour);
-  tft.display();
   #else
-  (void) args, (void) env;
+  (void) args;
   #endif
   return nil;
 }
 
 object *fn_fillcircle (object *args, object *env) {
-  #if defined(gfxsupport)
   (void) env;
+  #if defined(gfxsupport)
   uint16_t params[3], colour = COLOR_WHITE;
   for (int i=0; i<3; i++) { params[i] = checkinteger(FILLCIRCLE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(FILLCIRCLE, car(args));
   tft.fillCircle(params[0], params[1], params[2], colour);
-  tft.display();
   #else
-  (void) args, (void) env;
+  (void) args;
   #endif
   return nil;
 }
 
 object *fn_drawroundrect (object *args, object *env) {
-  #if defined(gfxsupport)
   (void) env;
+  #if defined(gfxsupport)
   uint16_t params[5], colour = COLOR_WHITE;
   for (int i=0; i<5; i++) { params[i] = checkinteger(DRAWROUNDRECT, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWROUNDRECT, car(args));
   tft.drawRoundRect(params[0], params[1], params[2], params[3], params[4], colour);
-  tft.display();
   #else
-  (void) args, (void) env;
+  (void) args;
   #endif
   return nil;
 }
 
 object *fn_fillroundrect (object *args, object *env) {
-  #if defined(gfxsupport)
   (void) env;
+  #if defined(gfxsupport)
   uint16_t params[5], colour = COLOR_WHITE;
   for (int i=0; i<5; i++) { params[i] = checkinteger(FILLROUNDRECT, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(FILLROUNDRECT, car(args));
   tft.fillRoundRect(params[0], params[1], params[2], params[3], params[4], colour);
-  tft.display();
   #else
-  (void) args, (void) env;
+  (void) args;
   #endif
   return nil;
 }
 
 object *fn_drawtriangle (object *args, object *env) {
-  #if defined(gfxsupport)
   (void) env;
+  #if defined(gfxsupport)
   uint16_t params[6], colour = COLOR_WHITE;
   for (int i=0; i<6; i++) { params[i] = checkinteger(DRAWTRIANGLE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(DRAWTRIANGLE, car(args));
   tft.drawTriangle(params[0], params[1], params[2], params[3], params[4], params[5], colour);
-  tft.display();
   #else
-  (void) args, (void) env;
+  (void) args;
   #endif
   return nil;
 }
 
 object *fn_filltriangle (object *args, object *env) {
-  #if defined(gfxsupport)
   (void) env;
+  #if defined(gfxsupport)
   uint16_t params[6], colour = COLOR_WHITE;
   for (int i=0; i<6; i++) { params[i] = checkinteger(FILLTRIANGLE, car(args)); args = cdr(args); }
   if (args != NULL) colour = checkinteger(FILLTRIANGLE, car(args));
   tft.fillTriangle(params[0], params[1], params[2], params[3], params[4], params[5], colour);
-  tft.display();
   #else
-  (void) args, (void) env;
+  (void) args;
   #endif
   return nil;
 }
 
 object *fn_drawchar (object *args, object *env) {
-  #if defined(gfxsupport)
   (void) env;
+  #if defined(gfxsupport)
   uint16_t colour = COLOR_WHITE, bg = COLOR_BLACK, size = 1;
   object *more = cdr(cddr(args));
   if (more != NULL) {
@@ -4161,83 +4161,81 @@ object *fn_drawchar (object *args, object *env) {
   }
   tft.drawChar(checkinteger(DRAWCHAR, first(args)), checkinteger(DRAWCHAR, second(args)), checkchar(DRAWCHAR, third(args)),
     colour, bg, size);
-  tft.display();
   #else
-  (void) args, (void) env;
+  (void) args;
   #endif
   return nil;
 }
 
 object *fn_setcursor (object *args, object *env) {
-  #if defined(gfxsupport)
   (void) env;
+  #if defined(gfxsupport)
   tft.setCursor(checkinteger(SETCURSOR, first(args)), checkinteger(SETCURSOR, second(args)));
+  #else
+  (void) args;
   #endif
   return nil;
 }
 
 object *fn_settextcolor (object *args, object *env) {
-  #if defined(gfxsupport)
   (void) env;
+  #if defined(gfxsupport)
   if (cdr(args) != NULL) tft.setTextColor(checkinteger(SETTEXTCOLOR, first(args)), checkinteger(SETTEXTCOLOR, second(args)));
   else tft.setTextColor(checkinteger(SETTEXTCOLOR, first(args)));
   #else
-  (void) args, (void) env;
+  (void) args;
   #endif
   return nil;
 }
 
 object *fn_settextsize (object *args, object *env) {
-  #if defined(gfxsupport)
   (void) env;
+  #if defined(gfxsupport)
   tft.setTextSize(checkinteger(SETTEXTSIZE, first(args)));
   #else
-  (void) args, (void) env;
+  (void) args;
   #endif
   return nil;
 }
 
 object *fn_settextwrap (object *args, object *env) {
-  #if defined(gfxsupport)
   (void) env;
+  #if defined(gfxsupport)
   tft.setTextWrap(first(args) != NULL);
   #else
-  (void) args, (void) env;
+  (void) args;
   #endif
   return nil;
 }
 
 object *fn_fillscreen (object *args, object *env) {
-  #if defined(gfxsupport)
   (void) env;
+  #if defined(gfxsupport)
   uint16_t colour = COLOR_BLACK;
   if (args != NULL) colour = checkinteger(FILLSCREEN, first(args));
   tft.fillScreen(colour);
-  tft.display();
   #else
-  (void) args, (void) env;
+  (void) args;
   #endif
   return nil;
 }
 
 object *fn_setrotation (object *args, object *env) {
-  #if defined(gfxsupport)
   (void) env;
+  #if defined(gfxsupport)
   tft.setRotation(checkinteger(SETROTATION, first(args)));
-  tft.display();
   #else
-  (void) args, (void) env;
+  (void) args;
   #endif
   return nil;
 }
 
 object *fn_invertdisplay (object *args, object *env) {
-  #if defined(gfxsupport)
   (void) env;
+  #if defined(gfxsupport)
   tft.invertDisplay(first(args) != NULL);
-  tft.display();
   #else
-  (void) args, (void) env;
+  (void) args;
   #endif
   return nil;
 }
@@ -5935,10 +5933,17 @@ object *read (gfun_t gfun) {
 
 void initgfx () {
 #if defined(gfxsupport)
-  Wire.begin();
-  tft.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-  tft.fillScreen(COLOR_BLACK);
-  tft.display();
+  tft.init(135, 240);
+#if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2_TFT)
+  pinMode(TFT_I2C_POWER, OUTPUT);
+  digitalWrite(TFT_I2C_POWER, HIGH);
+  tft.setRotation(3);
+#else
+  tft.setRotation(1);
+#endif
+  tft.fillScreen(ST77XX_BLACK);
+  pinMode(TFT_BACKLITE, OUTPUT);
+  digitalWrite(TFT_BACKLITE, HIGH);
 #endif
 }
 
@@ -5955,7 +5960,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.3a "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.3b "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
