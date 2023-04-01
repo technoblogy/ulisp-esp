@@ -1,5 +1,5 @@
-/* uLisp ESP Release 4.4 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 21st March 2023
+/* uLisp ESP Release 4.4b - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 31st March 2023
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -438,10 +438,15 @@ bool eqsymbols (object *obj, char *buffer) {
   object *arg = cdr(obj);
   int i = 0;
   while (!(arg == NULL && buffer[i] == 0)) {
-    if (arg == NULL || buffer[i] == 0 ||
-      arg->chars != (buffer[i]<<24 | buffer[i+1]<<16 | buffer[i+2]<<8 | buffer[i+3])) return false;
+    if (arg == NULL || buffer[i] == 0) return false;
+    int test = 0, shift = 24;
+    for (int j=0; j<4; j++, i++) {
+      if (buffer[i] == 0) break;
+      test = test | buffer[i]<<shift;
+      shift = shift - 8;
+    }
+    if (arg->chars != test) return false;
     arg = car(arg);
-    i = i + 4;
   }
   return true;
 }
@@ -883,21 +888,28 @@ int8_t toradix40 (char ch) {
 }
 
 char fromradix40 (char n) {
-  if (n >= 1 && n <= 9) return '0'+n-1;
+  if (n >= 1 && n <= 10) return '0'+n-1;
   if (n >= 11 && n <= 36) return 'a'+n-11;
   if (n == 37) return '-'; if (n == 38) return '*'; if (n == 39) return '$';
   return 0;
 }
 
 uint32_t pack40 (char *buffer) {
-  int x = 0;
-  for (int i=0; i<6; i++) x = x * 40 + toradix40(buffer[i]);
+  int x = 0, j = 0;
+  for (int i=0; i<6; i++) {
+    x = x * 40 + toradix40(buffer[j]);
+    if (buffer[j] != 0) j++;
+  }
   return x;
 }
 
 bool valid40 (char *buffer) {
-  if (toradix40(buffer[0]) < 11) return false;
-  for (int i=1; i<6; i++) if (toradix40(buffer[i]) < 0) return false;
+  int t = 11;
+  for (int i=0; i<6; i++) {
+    if (toradix40(buffer[i]) < t) return false;
+    if (buffer[i] == 0) break;
+    t = 0;
+  }
   return true;
 }
 
@@ -920,8 +932,8 @@ int checkbitvalue (object *obj) {
   return n;
 }
 
-float checkintfloat (object *obj){
-  if (integerp(obj)) return obj->integer;
+float checkintfloat (object *obj) {
+  if (integerp(obj)) return (float)obj->integer;
   if (!floatp(obj)) error(notanumber, obj);
   return obj->single_float;
 }
@@ -987,6 +999,16 @@ int listlength (object *list) {
     length++;
   }
   return length;
+}
+
+object *checkarguments (object *args, int min, int max) {
+  if (args == NULL) error2(noargument);
+  args = first(args);
+  if (!listp(args)) error(notalist, args);
+  int length = listlength(args);
+  if (length < min) error(toofewargs, args);
+  if (length > max) error(toomanyargs, args);
+  return args;
 }
 
 // Mathematical helper functions
@@ -2214,8 +2236,7 @@ object *sp_setf (object *args, object *env) {
 // Other special forms
 
 object *sp_dolist (object *args, object *env) {
-  if (args == NULL || listlength(first(args)) < 2) error2(noargument);
-  object *params = first(args);
+  object *params = checkarguments(args, 2, 3);
   object *var = first(params);
   object *list = eval(second(params), env);
   push(list, GCStack); // Don't GC the list
@@ -2245,8 +2266,7 @@ object *sp_dolist (object *args, object *env) {
 }
 
 object *sp_dotimes (object *args, object *env) {
-  if (args == NULL || listlength(first(args)) < 2) error2(noargument);
-  object *params = first(args);
+  object *params = checkarguments(args, 2, 3);
   object *var = first(params);
   int count = checkinteger(eval(second(params), env));
   int index = 0;
@@ -2309,8 +2329,7 @@ object *sp_untrace (object *args, object *env) {
 }
 
 object *sp_formillis (object *args, object *env) {
-  if (args == NULL) error2(noargument);
-  object *param = first(args);
+  object *param = checkarguments(args, 0, 1);
   unsigned long start = millis();
   unsigned long now, total = 0;
   if (param != NULL) total = checkinteger(eval(first(param), env));
@@ -2342,9 +2361,7 @@ object *sp_time (object *args, object *env) {
 }
 
 object *sp_withoutputtostring (object *args, object *env) {
-  if (args == NULL) error2(noargument);
-  object *params = first(args);
-  if (params == NULL) error2(nostream);
+  object *params = checkarguments(args, 1, 1);
   object *var = first(params);
   object *pair = cons(var, stream(STRINGSTREAM, 0));
   push(pair,env);
@@ -2357,8 +2374,7 @@ object *sp_withoutputtostring (object *args, object *env) {
 }
 
 object *sp_withserial (object *args, object *env) {
-  object *params = first(args);
-  if (params == NULL) error2(nostream);
+  object *params = checkarguments(args, 2, 3);
   object *var = first(params);
   int address = checkinteger(eval(second(params), env));
   params = cddr(params);
@@ -2374,8 +2390,7 @@ object *sp_withserial (object *args, object *env) {
 }
 
 object *sp_withi2c (object *args, object *env) {
-  object *params = first(args);
-  if (params == NULL) error2(nostream);
+  object *params = checkarguments(args, 2, 4);
   object *var = first(params);
   int address = checkinteger(eval(second(params), env));
   params = cddr(params);
@@ -2397,8 +2412,7 @@ object *sp_withi2c (object *args, object *env) {
 }
 
 object *sp_withspi (object *args, object *env) {
-  object *params = first(args);
-  if (params == NULL) error2(nostream);
+  object *params = checkarguments(args, 2, 6);
   object *var = first(params);
   params = cdr(params);
   if (params == NULL) error2(nostream);
@@ -2434,8 +2448,7 @@ object *sp_withspi (object *args, object *env) {
 
 object *sp_withsdcard (object *args, object *env) {
 #if defined(sdcardsupport)
-  object *params = first(args);
-  if (params == NULL) error2(nostream);
+  object *params = checkarguments(args, 2, 3);
   object *var = first(params);
   params = cdr(params);
   if (params == NULL) error2(PSTR("no filename specified"));
@@ -4094,7 +4107,7 @@ object *sp_error (object *args, object *env) {
 // Wi-Fi
 
 object *sp_withclient (object *args, object *env) {
-  object *params = first(args);
+  object *params = checkarguments(args, 1, 3);
   object *var = first(params);
   char buffer[BUFFERSIZE];
   params = cdr(params);
@@ -4183,7 +4196,7 @@ object *fn_wificonnect (object *args, object *env) {
 
 object *sp_withgfx (object *args, object *env) {
 #if defined(gfxsupport)
-  object *params = first(args);
+  object *params = checkarguments(args, 1, 1);
   object *var = first(params);
   object *pair = cons(var, stream(GFXSTREAM, 1));
   push(pair,env);
@@ -4959,7 +4972,7 @@ const char doc131[] PROGMEM = "(exp number)\n"
 "Returns exp(number).";
 const char doc132[] PROGMEM = "(sqrt number)\n"
 "Returns sqrt(number).";
-const char doc133[] PROGMEM = "(number [base])\n"
+const char doc133[] PROGMEM = "(log number [base])\n"
 "Returns the logarithm of number to the specified base. If base is omitted it defaults to e.";
 const char doc134[] PROGMEM = "(expt number power)\n"
 "Returns number raised to the specified power.\n"
@@ -4969,10 +4982,10 @@ const char doc135[] PROGMEM = "(ceiling number [divisor])\n"
 "Returns ceil(number/divisor). If omitted, divisor is 1.";
 const char doc136[] PROGMEM = "(floor number [divisor])\n"
 "Returns floor(number/divisor). If omitted, divisor is 1.";
-const char doc137[] PROGMEM = "(truncate number)\n"
-"Returns t if the argument is a floating-point number.";
-const char doc138[] PROGMEM = "(round number)\n"
-"Returns t if the argument is a floating-point number.";
+const char doc137[] PROGMEM = "(truncate number [divisor])\n"
+"Returns the integer part of number/divisor. If divisor is omitted it defaults to 1.";
+const char doc138[] PROGMEM = "(round number [divisor])\n"
+"Returns the integer closest to number/divisor. If divisor is omitted it defaults to 1.";
 const char doc139[] PROGMEM = "(char string n)\n"
 "Returns the nth character in a string, counting from zero.";
 const char doc140[] PROGMEM = "(char-code character)\n"
@@ -5013,10 +5026,8 @@ const char doc155[] PROGMEM = "(logior [value*])\n"
 "Returns the bitwise | of the values.";
 const char doc156[] PROGMEM = "(logxor [value*])\n"
 "Returns the bitwise ^ of the values.";
-const char doc157[] PROGMEM = "(prin1-to-string item [stream])\n"
-"Prints its argument to a string, and returns the string.\n"
-"Characters and strings are printed with quotation marks and escape characters,\n"
-"in a format that will be suitable for read-from-string.";
+const char doc157[] PROGMEM = "(lognot value)\n"
+"Returns the bitwise logical NOT of the value.";
 const char doc158[] PROGMEM = "(ash value shift)\n"
 "Returns the result of bitwise shifting value by shift bits. If shift is positive, value is shifted to the left.";
 const char doc159[] PROGMEM = "(logbitp bit value)\n"
@@ -5537,6 +5548,7 @@ object *eval (object *form, object *env) {
     pair = value(name, GlobalEnv);
     if (pair != NULL) return cdr(pair);
     else if (builtinp(name)) return form;
+    Context = NIL;
     error(PSTR("undefined"), form);
   }
 
@@ -6084,7 +6096,6 @@ object *nextitem (gfun_t gfun) {
   if (ch == '.') valid = 0; else if (digitvalue(ch)<base) valid = 1; else valid = -1;
   bool isexponent = false;
   int exponent = 0, esign = 1;
-  buffer[2] = '\0'; buffer[3] = '\0'; buffer[4] = '\0'; buffer[5] = '\0'; // In case symbol is < 5 letters
   float divisor = 10.0;
 
   while(!issp(ch) && !isbr(ch) && index < bufmax) {
@@ -6135,8 +6146,7 @@ object *nextitem (gfun_t gfun) {
   builtin_t x = lookupbuiltin(buffer);
   if (x == NIL) return nil;
   if (x != ENDFUNCTIONS) return bsymbol(x);
-  else if ((index <= 6) && valid40(buffer)) return intern(twist(pack40(buffer)));
-  buffer[index+1] = '\0'; buffer[index+2] = '\0'; buffer[index+3] = '\0'; // For internlong
+  if (index <= 6 && valid40(buffer)) return intern(twist(pack40(buffer)));
   return internlong(buffer);
 }
 
@@ -6197,6 +6207,7 @@ void initgfx () {
   #endif
 }
 
+// Entry point from the Arduino IDE
 void setup () {
   Serial.begin(9600);
   int start = millis();
@@ -6205,7 +6216,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.4 "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.4b "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
@@ -6222,7 +6233,7 @@ void repl (object *env) {
       pint(BreakLevel, pserial);
     }
     pserial('>'); pserial(' ');
-    Context = 0;
+    Context = NIL;
     object *line = read(gserial);
     if (BreakLevel && line == nil) { pln(pserial); return; }
     if (line == (object *)KET) error2(PSTR("unmatched right bracket"));
