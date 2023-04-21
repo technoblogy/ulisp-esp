@@ -1,5 +1,5 @@
-/* uLisp ESP Release 4.4b - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 31st March 2023
+/* uLisp ESP Release 4.4c - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 21st April 2023
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -80,6 +80,14 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
 
+#elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32_PICO)
+  #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
+  #define LITTLEFS
+  #include "FS.h"
+  #include <LittleFS.h>
+  #define SDCARD_SS_PIN 13
+  #define LED_BUILTIN 13
+  
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2)
   #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
   #define LITTLEFS
@@ -1745,46 +1753,55 @@ object *mapcarcan (object *args, object *env, mapfun_t fun) {
   }
 }
 
-// I2C interface for one port, using Arduino Wire
+// I2C interface for up to two ports, using Arduino Wire
 
-void I2Cinit (bool enablePullup) {
+void I2Cinit (TwoWire *port, bool enablePullup) {
   (void) enablePullup;
-  Wire.begin();
+  port->begin();
 }
 
-int I2Cread () {
-  return Wire.read();
+int I2Cread (TwoWire *port) {
+  return port->read();
 }
 
-void I2Cwrite (uint8_t data) {
-  Wire.write(data);
+void I2Cwrite (TwoWire *port, uint8_t data) {
+  port->write(data);
 }
 
-bool I2Cstart (uint8_t address, uint8_t read) {
+bool I2Cstart (TwoWire *port, uint8_t address, uint8_t read) {
  int ok = true;
  if (read == 0) {
-   Wire.beginTransmission(address);
-   ok = (Wire.endTransmission(true) == 0);
-   Wire.beginTransmission(address);
+   port->beginTransmission(address);
+   ok = (port->endTransmission(true) == 0);
+   port->beginTransmission(address);
  }
- else Wire.requestFrom(address, I2Ccount);
+ else port->requestFrom(address, I2Ccount);
  return ok;
 }
 
-bool I2Crestart (uint8_t address, uint8_t read) {
-  int error = (Wire.endTransmission(false) != 0);
-  if (read == 0) Wire.beginTransmission(address);
-  else Wire.requestFrom(address, I2Ccount);
+bool I2Crestart (TwoWire *port, uint8_t address, uint8_t read) {
+  int error = (port->endTransmission(false) != 0);
+  if (read == 0) port->beginTransmission(address);
+  else port->requestFrom(address, I2Ccount);
   return error ? false : true;
 }
 
-void I2Cstop (uint8_t read) {
-  if (read == 0) Wire.endTransmission(); // Check for error?
+void I2Cstop (TwoWire *port, uint8_t read) {
+  if (read == 0) port->endTransmission(); // Check for error?
 }
 
 // Streams
 
+// Simplify board differences
+#if defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2)
+#define ULISP_I2C1
+#endif
+
 inline int spiread () { return SPI.transfer(0); }
+inline int i2cread () { return I2Cread(&Wire); }
+#if defined(ULISP_I2C1)
+inline int i2c1read () { return I2Cread(&Wire1); }
+#endif
 inline int serial1read () { while (!Serial1.available()) testescape(); return Serial1.read(); }
 #if defined(sdcardsupport)
 File SDpfile, SDgfile;
@@ -1817,6 +1834,7 @@ void serialbegin (int address, int baud) {
 
 void serialend (int address) {
   if (address == 1) {Serial1.flush(); Serial1.end(); }
+  else error(PSTR("port not supported"), number(address));
 }
 
 gfun_t gstreamfun (object *args) {
@@ -1827,8 +1845,12 @@ gfun_t gstreamfun (object *args) {
     int stream = isstream(first(args));
     streamtype = stream>>8; address = stream & 0xFF;
   }
-  if (streamtype == I2CSTREAM) gfun = (gfun_t)I2Cread;
-  else if (streamtype == SPISTREAM) gfun = spiread;
+  if (streamtype == I2CSTREAM) {
+    if (address < 128) gfun = i2cread;
+    #if defined(ULISP_I2C1)
+    else gfun = i2c1read;
+    #endif
+  } else if (streamtype == SPISTREAM) gfun = spiread;
   else if (streamtype == SERIALSTREAM) {
     if (address == 0) gfun = gserial;
     else if (address == 1) gfun = serial1read;
@@ -1842,6 +1864,10 @@ gfun_t gstreamfun (object *args) {
 }
 
 inline void spiwrite (char c) { SPI.transfer(c); }
+inline void i2cwrite (char c) { I2Cwrite(&Wire, c); }
+#if defined(ULISP_I2C1)
+inline void i2c1write (char c) { I2Cwrite(&Wire1, c); }
+#endif
 inline void serial1write (char c) { Serial1.write(c); }
 inline void WiFiwrite (char c) { client.write(c); }
 #if defined(sdcardsupport)
@@ -1859,8 +1885,12 @@ pfun_t pstreamfun (object *args) {
     int stream = isstream(first(args));
     streamtype = stream>>8; address = stream & 0xFF;
   }
-  if (streamtype == I2CSTREAM) pfun = (pfun_t)I2Cwrite;
-  else if (streamtype == SPISTREAM) pfun = spiwrite;
+  if (streamtype == I2CSTREAM) {
+    if (address < 128) pfun = i2cwrite;
+    #if defined(ULISP_I2C1)
+    else pfun = i2c1write;
+    #endif
+  } else if (streamtype == SPISTREAM) pfun = spiwrite;
   else if (streamtype == SERIALSTREAM) {
     if (address == 0) pfun = pserial;
     else if (address == 1) pfun = serial1write;
@@ -1892,6 +1922,8 @@ void checkanalogread (int pin) {
     error(PSTR("invalid pin"), number(pin));
 #elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2_TFT)
   if (!(pin==8 || (pin>=14 && pin<=18))) error(PSTR("invalid pin"), number(pin));
+#elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32_PICO)
+  if (!(pin==4 || pin==7 || (pin>=12 && pin<=15) || (pin>=25 && pin<=27) || (pin>=32 && pin<=33))) error(PSTR("invalid pin"), number(pin));
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2)
   if (!((pin>=5 && pin<=9) || (pin>=16 && pin<=18))) error(PSTR("invalid pin"), number(pin));
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32C3)
@@ -1908,7 +1940,7 @@ void checkanalogread (int pin) {
 void checkanalogwrite (int pin) {
 #if defined(ESP8266)
   if (!(pin>=0 && pin<=16)) error(PSTR("invalid pin"), number(pin));
-#elif defined(ESP32) || defined(ARDUINO_FEATHER_ESP32) || defined(ARDUINO_ESP32_DEV)
+#elif defined(ESP32) || defined(ARDUINO_FEATHER_ESP32) || defined(ARDUINO_ESP32_DEV) || defined(ARDUINO_ADAFRUIT_QTPY_ESP32_PICO)
   if (!(pin>=25 && pin<=26)) error(PSTR("invalid pin"), number(pin));
 #elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2_TFT) || defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2) || defined(ARDUINO_FEATHERS2) || defined(ARDUINO_ESP32S2_DEV)
   if (!(pin>=17 && pin<=18)) error(PSTR("invalid pin"), number(pin));
@@ -2394,7 +2426,10 @@ object *sp_withi2c (object *args, object *env) {
   object *var = first(params);
   int address = checkinteger(eval(second(params), env));
   params = cddr(params);
-  if (address == 0 && params != NULL) params = cdr(params); // Ignore port
+  if ((address == 0 || address == 1) && params != NULL) {
+    address = address * 128 + checkinteger(eval(first(params), env));
+    params = cdr(params);
+  }
   int read = 0; // Write
   I2Ccount = 0;
   if (params != NULL) {
@@ -2402,12 +2437,17 @@ object *sp_withi2c (object *args, object *env) {
     if (integerp(rw)) I2Ccount = rw->integer;
     read = (rw != NULL);
   }
-  I2Cinit(1); // Pullups
-  object *pair = cons(var, (I2Cstart(address, read)) ? stream(I2CSTREAM, address) : nil);
+  // Top bit of address is I2C port
+  TwoWire *port = &Wire;
+  #if defined(ULISP_I2C1)
+  if (address > 127) port = &Wire1;
+  #endif
+  I2Cinit(port, 1); // Pullups
+  object *pair = cons(var, (I2Cstart(port, address & 0x7F, read)) ? stream(I2CSTREAM, address) : nil);
   push(pair,env);
   object *forms = cdr(args);
   object *result = eval(tf_progn(forms,env), env);
-  I2Cstop(read);
+  I2Cstop(port, read);
   return result;
 }
 
@@ -3672,7 +3712,12 @@ object *fn_restarti2c (object *args, object *env) {
   }
   int address = stream & 0xFF;
   if (stream>>8 != I2CSTREAM) error2(PSTR("not an i2c stream"));
-  return I2Crestart(address, read) ? tee : nil;
+  TwoWire *port;
+  if (address < 128) port = &Wire;
+  #if defined(ULISP_I2C1)
+  else port = &Wire1;
+  #endif
+  return I2Crestart(port, address & 0x7F, read) ? tee : nil;
 }
 
 object *fn_gc (object *obj, object *env) {
@@ -5505,7 +5550,7 @@ bool findsubstring (char *part, builtin_t name) {
 }
 
 void testescape () {
-  if (Serial.read() == '~') error2(PSTR("escape!"));
+  if (Serial.available() && Serial.read() == '~') error2(PSTR("escape!"));
 }
 
 bool keywordp (object *obj) {
@@ -6216,7 +6261,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.4b "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.4c "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
