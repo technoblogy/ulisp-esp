@@ -1,5 +1,5 @@
-/* uLisp ESP Release 4.4c - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 21st April 2023
+/* uLisp ESP Release 4.4d - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 30th June 2023
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -26,7 +26,6 @@ const char LispLibrary[] PROGMEM = "";
 #include <SPI.h>
 #include <Wire.h>
 #include <limits.h>
-#include <EEPROM.h>
 #if defined (ESP8266)
   #include <ESP8266WiFi.h>
 #elif defined (ESP32)
@@ -60,6 +59,7 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 
 #if defined(ESP8266)
   #define WORKSPACESIZE (3928-SDSIZE)     /* Cells (8*bytes) */
+  #include <EEPROM.h>
   #define EEPROMSIZE 4096                 /* Bytes available for EEPROM */
   #define SDCARD_SS_PIN 10
   #define LED_BUILTIN 13
@@ -67,15 +67,13 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 #elif defined(ARDUINO_FEATHER_ESP32)
   #define WORKSPACESIZE (9216-SDSIZE)     /* Cells (8*bytes) */
   #define LITTLEFS
-  #include "FS.h"
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
 
 #elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2_TFT)
-  #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
+  #define WORKSPACESIZE (8160-SDSIZE)            /* Cells (8*bytes) */
   #define LITTLEFS
-  #include "FS.h"
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
@@ -83,15 +81,13 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32_PICO)
   #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
   #define LITTLEFS
-  #include "FS.h"
   #include <LittleFS.h>
   #define SDCARD_SS_PIN 13
   #define LED_BUILTIN 13
   
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2)
-  #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
+  #define WORKSPACESIZE (8160-SDSIZE)            /* Cells (8*bytes) */
   #define LITTLEFS
-  #include "FS.h"
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
@@ -100,15 +96,13 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32C3)
   #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
   #define LITTLEFS
-  #include "FS.h"
   #include <LittleFS.h>
   #define SDCARD_SS_PIN 13
   #define LED_BUILTIN 13
 
 #elif defined(ARDUINO_FEATHERS2)                 /* UM FeatherS2 */
-  #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
+  #define WORKSPACESIZE (8160-SDSIZE)            /* Cells (8*bytes) */
   #define LITTLEFS
-  #include "FS.h"
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
@@ -117,15 +111,14 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 #elif defined(ARDUINO_ESP32_DEV)                 /* For TTGO T-Display */
   #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
   #define LITTLEFS
-  #include "FS.h"
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
+  #define LED_BUILTIN 13
 
 #elif defined(ARDUINO_ESP32S2_DEV)
   #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
   #define LITTLEFS
-  #include "FS.h"
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
@@ -134,7 +127,6 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 #elif defined(ARDUINO_ESP32C3_DEV)
   #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
   #define LITTLEFS
-  #include "FS.h"
   #include <LittleFS.h>
   #define SDCARD_SS_PIN 13
   #define LED_BUILTIN 13
@@ -142,7 +134,6 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 #elif defined(ARDUINO_ESP32S3_DEV)
   #define WORKSPACESIZE (22000-SDSIZE)            /* Cells (8*bytes) */
   #define LITTLEFS
-  #include "FS.h"
   #include <LittleFS.h>
   #define SDCARD_SS_PIN 13
   #define LED_BUILTIN 13
@@ -150,7 +141,6 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 #elif defined(ESP32)
   #define WORKSPACESIZE (9216-SDSIZE)     /* Cells (8*bytes) */
   #define LITTLEFS
-  #include "FS.h"
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
@@ -1069,10 +1059,6 @@ object *divide_floats (object *args, float fresult) {
   return makefloat(fresult);
 }
 
-int myround (float number) {
-  return (number >= 0) ? (int)(number + 0.5) : (int)(number - 0.5);
-}
-
 object *compare (object *args, bool lt, bool gt, bool eq) {
   object *arg1 = first(args);
   args = cdr(args);
@@ -1348,13 +1334,13 @@ object *copystring (object *arg) {
   return obj;
 }
 
-object *readstring (uint8_t delim, gfun_t gfun) {
+object *readstring (uint8_t delim, bool esc, gfun_t gfun) {
   object *obj = newstring();
   object *tail = obj;
   int ch = gfun();
   if (ch == -1) return nil;
   while ((ch != delim) && (ch != -1)) {
-    if (ch == '\\') ch = gfun();
+    if (esc && ch == '\\') ch = gfun();
     buildstring(ch, &tail);
     ch = gfun();
   }
@@ -1400,6 +1386,17 @@ int gstr () {
 
 void pstr (char c) {
   buildstring(c, &GlobalStringTail);
+}
+
+object *iptostring (IPAddress ip) {
+  union { uint32_t data2; uint8_t u8[4]; };
+  object *obj = startstring();
+  data2 = ip;
+  for (int i=0; i<4; i++) {
+    if (i) pstr('.');
+    pintbase(u8[i], 10, pstr);
+  }
+  return obj;
 }
 
 object *lispstring (char *s) {
@@ -1824,6 +1821,7 @@ inline int WiFiread () {
     LastChar = 0;
     return temp;
   }
+  while (!client.available()) testescape();
   return client.read();
 }
 
@@ -2487,12 +2485,15 @@ object *sp_withspi (object *args, object *env) {
 }
 
 object *sp_withsdcard (object *args, object *env) {
-#if defined(sdcardsupport)
+  #if defined(sdcardsupport)
   object *params = checkarguments(args, 2, 3);
   object *var = first(params);
   params = cdr(params);
   if (params == NULL) error2(PSTR("no filename specified"));
+  builtin_t temp = Context;
   object *filename = eval(first(params), env);
+  Context = temp;
+  if (!stringp(filename)) error(PSTR("filename is not a string"), filename);
   params = cdr(params);
   SD.begin();
   int mode = 0;
@@ -2514,11 +2515,11 @@ object *sp_withsdcard (object *args, object *env) {
   object *result = eval(tf_progn(forms,env), env);
   if (mode >= 1) SDpfile.close(); else SDgfile.close();
   return result;
-#else
+  #else
   (void) args, (void) env;
   error2(PSTR("not supported"));
   return nil;
-#endif
+  #endif
 }
 
 // Tail-recursive forms
@@ -3328,8 +3329,8 @@ object *fn_round (object *args, object *env) {
   (void) env;
   object *arg = first(args);
   args = cdr(args);
-  if (args != NULL) return number(myround(checkintfloat(arg) / checkintfloat(first(args))));
-  else return number(myround(checkintfloat(arg)));
+  if (args != NULL) return number(round(checkintfloat(arg) / checkintfloat(first(args))));
+  else return number(round(checkintfloat(arg)));
 }
 
 // Characters
@@ -3665,7 +3666,7 @@ object *fn_readbyte (object *args, object *env) {
 object *fn_readline (object *args, object *env) {
   (void) env;
   gfun_t gfun = gstreamfun(args);
-  return readstring('\n', gfun);
+  return readstring('\n', false, gfun);
 }
 
 object *fn_writebyte (object *args, object *env) {
@@ -3701,7 +3702,7 @@ object *fn_writeline (object *args, object *env) {
 
 object *fn_restarti2c (object *args, object *env) {
   (void) env;
-  int stream = first(args)->integer;
+  int stream = isstream(first(args));
   args = cdr(args);
   int read = 0; // Write
   I2Ccount = 0;
@@ -4209,7 +4210,7 @@ object *fn_wifisoftap (object *args, object *env) {
     }
     WiFi.softAP(cstring(first, ssid, 33), cstring(second, pass, 65), channel, hidden);
   }
-  return lispstring((char*)WiFi.softAPIP().toString().c_str());
+  return iptostring(WiFi.softAPIP());
 }
 
 object *fn_connected (object *args, object *env) {
@@ -4220,7 +4221,7 @@ object *fn_connected (object *args, object *env) {
 
 object *fn_wifilocalip (object *args, object *env) {
   (void) args, (void) env;
-  return lispstring((char*)WiFi.localIP().toString().c_str());
+  return iptostring(WiFi.localIP());
 }
 
 object *fn_wificonnect (object *args, object *env) {
@@ -4230,7 +4231,7 @@ object *fn_wificonnect (object *args, object *env) {
   if (cdr(args) == NULL) WiFi.begin(cstring(first(args), ssid, 33));
   else WiFi.begin(cstring(first(args), ssid, 33), cstring(second(args), pass, 65));
   int result = WiFi.waitForConnectResult();
-  if (result == WL_CONNECTED) return lispstring((char*)WiFi.localIP().toString().c_str());
+  if (result == WL_CONNECTED) return iptostring(WiFi.localIP());
   else if (result == WL_NO_SSID_AVAIL) error2(PSTR("network not found"));
   else if (result == WL_CONNECT_FAILED) error2(PSTR("connection failed"));
   else error2(PSTR("unable to connect"));
@@ -5550,7 +5551,7 @@ bool findsubstring (char *part, builtin_t name) {
 }
 
 void testescape () {
-  if (Serial.available() && Serial.read() == '~') error2(PSTR("escape!"));
+  if (Serial.available() && Serial.read() == '~') { Context = NIL; error2(PSTR("escape!")); }
 }
 
 bool keywordp (object *obj) {
@@ -6085,7 +6086,7 @@ object *nextitem (gfun_t gfun) {
   if (ch == '\'') return (object *)QUO;
 
   // Parse string
-  if (ch == '"') return readstring('"', gfun);
+  if (ch == '"') return readstring('"', true, gfun);
 
   // Parse symbol, character, or number
   int index = 0, base = 10, sign = 1;
@@ -6261,7 +6262,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.4c "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.4d "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
