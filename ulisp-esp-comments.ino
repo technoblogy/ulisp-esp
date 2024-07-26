@@ -1,5 +1,5 @@
-/* uLisp ESP Release 4.6a - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 19th July 2024
+/* uLisp ESP Release 4.6b - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 26th July 2024
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -54,33 +54,57 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 #define BUFFERSIZE 36  // Number of bits+4
 
 #if defined(ARDUINO_FEATHER_ESP32)
-  #define WORKSPACESIZE (9216-SDSIZE)     /* Cells (8*bytes) */
+  #define WORKSPACESIZE (9500-SDSIZE)            /* Cells (8*bytes) */
+  #define LITTLEFS
+  #include <LittleFS.h>
+  #define analogWrite(x,y) dacWrite((x),(y))
+  #define SDCARD_SS_PIN 13
+
+#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32_V2)
+  #if defined(BOARD_HAS_PSRAM)
+  #define WORKSPACESIZE 260000                   /* Cells (8*bytes) */
+  #else
+  #define WORKSPACESIZE (9500-SDSIZE)            /* Cells (8*bytes) */
+  #endif
   #define LITTLEFS
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
 
 #elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2_TFT)
-  #define WORKSPACESIZE (8160-SDSIZE)            /* Cells (8*bytes) */
+  #if defined(BOARD_HAS_PSRAM)
+  #define WORKSPACESIZE 260000                   /* Cells (8*bytes) */
+  #else
+  #define WORKSPACESIZE (7232-SDSIZE)            /* Cells (8*bytes) */
+  #endif
   #define LITTLEFS
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
 
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32_PICO)
-  #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
+  #if defined(BOARD_HAS_PSRAM)
+  #define WORKSPACESIZE 260000                   /* Cells (8*bytes) */
+  #else
+  #define WORKSPACESIZE (9500-SDSIZE)            /* Cells (8*bytes) */
+  #endif
   #define LITTLEFS
   #include <LittleFS.h>
   #define SDCARD_SS_PIN 13
   #define LED_BUILTIN 13
   
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2)
+  #if defined(BOARD_HAS_PSRAM)
+  #define WORKSPACESIZE 260000                   /* Cells (8*bytes) */
+  #else
   #define WORKSPACESIZE (7232-SDSIZE)            /* Cells (8*bytes) */
+  #endif
   #define LITTLEFS
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
-
+  #define LED_BUILTIN 13
+  
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32C3)
   #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
   #define LITTLEFS
@@ -89,7 +113,11 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
   #define LED_BUILTIN 13
 
 #elif defined(ARDUINO_FEATHERS2)                 /* UM FeatherS2 */
+  #if defined(BOARD_HAS_PSRAM)
+  #define WORKSPACESIZE 1000000                  /* Cells (8*bytes) */
+  #else
   #define WORKSPACESIZE (8160-SDSIZE)            /* Cells (8*bytes) */
+  #endif
   #define LITTLEFS
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
@@ -105,7 +133,11 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
   #define LED_BUILTIN 13
 
 #elif defined(ARDUINO_ESP32S2_DEV)
-  #define WORKSPACESIZE (8100-SDSIZE)            /* Cells (8*bytes) */
+  #if defined(BOARD_HAS_PSRAM)
+  #define WORKSPACESIZE 260000                  /* Cells (8*bytes) */
+  #else
+  #define WORKSPACESIZE (8160-SDSIZE)            /* Cells (8*bytes) */
+  #endif
   #define LITTLEFS
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
@@ -120,14 +152,14 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
   #define LED_BUILTIN 13
 
 #elif defined(ARDUINO_ESP32S3_DEV)
-  #define WORKSPACESIZE (22000-SDSIZE)            /* Cells (8*bytes) */
+  #define WORKSPACESIZE (22000-SDSIZE)           /* Cells (8*bytes) */
   #define LITTLEFS
   #include <LittleFS.h>
   #define SDCARD_SS_PIN 13
   #define LED_BUILTIN 13
 
-#elif defined(ESP32)
-  #define WORKSPACESIZE (9216-SDSIZE)     /* Cells (8*bytes) */
+#elif defined(ESP32)                             /* Generic ESP32 board */
+  #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
   #define LITTLEFS
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
@@ -169,12 +201,13 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 #define marked(x)          ((((uintptr_t)(car(x))) & MARKBIT) != 0)
 #define MARKBIT            1
 
-#define setflag(x)         (Flags |= 1<<(x))
-#define clrflag(x)         (Flags &= ~(1<<(x)))
+#define setflag(x)         (Flags = Flags | 1<<(x))
+#define clrflag(x)         (Flags = Flags & ~(1<<(x)))
 #define tstflag(x)         (Flags & 1<<(x))
 
 #define issp(x)            (x == ' ' || x == '\n' || x == '\r' || x == '\t')
-#define isbr(x)            (x == ')' || x == '(' || x == '"' || x == '#')
+#define isbr(x)            (x == ')' || x == '(' || x == '"' || x == '#' || x == '\'')
+#define fntype(x)          (getminmax((uint8_t)(x))>>6)
 #define longsymbolp(x)     (((x)->name & 0x03) == 0)
 #define longnamep(x)       (((x) & 0x03) == 0)
 #define arraysize(x)       (sizeof(x) / sizeof(x[0]))
@@ -246,7 +279,11 @@ STRINGFN, PINMODE, DIGITALWRITE, ANALOGREAD, REGISTER, FORMAT,
 
 // Global variables
 
+#if defined(BOARD_HAS_PSRAM)
+object *Workspace WORDALIGNED;
+#else
 object Workspace[WORKSPACESIZE] WORDALIGNED;
+#endif
 
 jmp_buf toplevel_handler;
 jmp_buf *handler = &toplevel_handler;
@@ -374,6 +411,7 @@ const char indexnegative[] = "index can't be negative";
 const char invalidarg[] = "invalid argument";
 const char invalidkey[] = "invalid keyword";
 const char illegalclause[] = "illegal clause";
+const char illegalfn[] = "illegal function";
 const char invalidpin[] = "invalid pin";
 const char oddargs[] = "odd number of arguments";
 const char indexrange[] = "index out of range";
@@ -479,14 +517,16 @@ inline object *bsymbol (builtin_t name) {
 }
 
 /*
-  intern - looks through the workspace for an existing occurrence of symbol name and returns it,
+  intern - unless PSRAM looks through the workspace for an existing occurrence of symbol name and returns it,
   otherwise calls symbol(name) to create a new symbol.
 */
 object *intern (symbol_t name) {
+  #if !defined(BOARD_HAS_PSRAM)
   for (int i=0; i<WORKSPACESIZE; i++) {
     object *obj = &Workspace[i];
     if (obj->type == SYMBOL && obj->name == name) return obj;
   }
+  #endif
   return symbol(name);
 }
 
@@ -498,7 +538,7 @@ bool eqsymbols (object *obj, char *buffer) {
   int i = 0;
   while (!(arg == NULL && buffer[i] == 0)) {
     if (arg == NULL || buffer[i] == 0) return false;
-    int test = 0, shift = 24;
+    chars_t test = 0; int shift = 24;
     for (int j=0; j<4; j++, i++) {
       if (buffer[i] == 0) break;
       test = test | buffer[i]<<shift;
@@ -511,14 +551,16 @@ bool eqsymbols (object *obj, char *buffer) {
 }
 
 /*
-  internlong - looks through the workspace for an existing occurrence of the long symbol in buffer and returns it,
+  internlong - unless PSRAM looks through the workspace for an existing occurrence of the long symbol in buffer and returns it,
   otherwise calls lispstring(buffer) to create a new symbol.
 */
 object *internlong (char *buffer) {
+  #if !defined(BOARD_HAS_PSRAM)
   for (int i=0; i<WORKSPACESIZE; i++) {
     object *obj = &Workspace[i];
     if (obj->type == SYMBOL && longsymbolp(obj) && eqsymbols(obj, buffer)) return obj;
   }
+  #endif
   object *obj = lispstring(buffer);
   obj->type = SYMBOL;
   return obj;
@@ -552,13 +594,19 @@ const char doc[] = ":documentation";
 const char errorhandling[] = ":error-handling";
 const char wifi[] = ":wi-fi";
 const char gfx[] = ":gfx";
+const char sdcard[] = ":sd-card";
 
 /*
   features - create a list of features symbols from const strings.
 */
 object *features () {
   object *result = NULL;
+  #if defined(gfxsupport)
   push(internlong((char *)gfx), result);
+  #endif
+  #if defined(sdcardsupport)
+  push(internlong((char *)sdcard), result);
+  #endif
   push(internlong((char *)wifi), result);
   push(internlong((char *)errorhandling), result);
   push(internlong((char *)doc), result);
@@ -773,6 +821,8 @@ unsigned int saveimage (object *arg) {
 #elif defined(LITTLEFS)
   unsigned int imagesize = compactimage(&arg);
   if (!LittleFS.begin(true)) error2("problem mounting LittleFS");
+  int bytesneeded = imagesize*8 + 36; int bytesavailable = LittleFS.totalBytes();
+  if (bytesneeded > bytesavailable) error("image too large by", number(bytesneeded - bytesavailable));
   File file;
   if (stringp(arg)) {
     char buffer[BUFFERSIZE];
@@ -798,7 +848,7 @@ unsigned int saveimage (object *arg) {
   unsigned int imagesize = compactimage(&arg);
   if (!(arg == NULL || listp(arg))) error("illegal argument", arg);
   int bytesneeded = imagesize*8 + 36;
-  if (bytesneeded > EEPROMSIZE) error("image too large", number(imagesize));
+  if (bytesneeded > EEPROMSIZE) error("image too large by", number(bytesneeded - EEPROMSIZE));
   EEPROM.begin(EEPROMSIZE);
   int addr = 0;
   EpromWriteInt(&addr, (uintptr_t)arg);
@@ -1145,13 +1195,40 @@ void checkargs (object *args) {
 }
 
 /*
-  eq - implements Lisp eq
+  eqlongsymbol - checks whether two long symbols are equal
 */
-boolean eq (object *arg1, object *arg2) {
+bool eqlongsymbol (symbol_t sym1, symbol_t sym2) {
+  object *arg1 = (object *)sym1; object *arg2 = (object *)sym2;
+  while ((arg1 != NULL) || (arg2 != NULL)) {
+    if (arg1 == NULL || arg2 == NULL) return false;
+    if (arg1->chars != arg2->chars) return false;
+    arg1 = car(arg1); arg2 = car(arg2);
+  }
+  return true;
+}
+
+/*
+  eqsymbol - checks whether two symbols are equal
+*/
+bool eqsymbol (symbol_t sym1, symbol_t sym2) {
+  if (!longnamep(sym1) && !longnamep(sym2)) return (sym1 == sym2);  // Same short symbol
+  if (longnamep(sym1) && longnamep(sym2)) return eqlongsymbol(sym1, sym2);  // Same long symbol
+  return false;
+}
+
+/*
+  eq - implements Lisp eq, taking into account PSRAM
+*/
+bool eq (object *arg1, object *arg2) {
   if (arg1 == arg2) return true;  // Same object
   if ((arg1 == nil) || (arg2 == nil)) return false;  // Not both values
+  #if !defined(BOARD_HAS_PSRAM)
   if (arg1->cdr != arg2->cdr) return false;  // Different values
   if (symbolp(arg1) && symbolp(arg2)) return true;  // Same symbol
+  #else
+  if (symbolp(arg1) && symbolp(arg2)) return eqsymbol(arg1->name, arg2->name);  // Same symbol?
+  if (arg1->cdr != arg2->cdr) return false;  // Different values
+  #endif
   if (integerp(arg1) && integerp(arg2)) return true;  // Same integer
   if (floatp(arg1) && floatp(arg2)) return true; // Same float
   if (characterp(arg1) && characterp(arg2)) return true;  // Same character
@@ -1762,7 +1839,7 @@ object *apropos (object *arg, bool print) {
     if (strstr(full, part) != NULL) {
       if (print) {
         printsymbol(var, pserial); pserial(' '); pserial('(');
-        if (consp(val) && symbolp(car(val)) && builtin(car(val)->name) == LAMBDA) pfstring("user function", pserial);
+        if (consp(val) && isbuiltin(car(val), LAMBDA)) pfstring("user function", pserial);
         else if (consp(val) && car(val)->type == CODE) pfstring("code", pserial);
         else pfstring("user symbol", pserial);
         pserial(')'); pln(pserial);
@@ -1778,10 +1855,10 @@ object *apropos (object *arg, bool print) {
   for (int i = 0; i < entries; i++) {
     if (findsubstring(part, (builtin_t)i)) {
       if (print) {
-        uint8_t fntype = getminmax(i)>>6;
+        uint8_t fntype = fntype(i);
         pbuiltin((builtin_t)i, pserial); pserial(' '); pserial('(');
         if (fntype == FUNCTIONS) pfstring("function", pserial);
-        else if (fntype == SPECIAL_FORMS) pfstring("special form", pserial);
+        else if (fntype == SPECIAL_FORMS || fntype == TAIL_FORMS) pfstring("special form", pserial);
         else pfstring("symbol/keyword", pserial);
         pserial(')'); pln(pserial);
       } else {
@@ -1852,12 +1929,17 @@ uint32_t ipstring (object *form) {
   return ipaddress;
 }
 
-// Lookup variable in environment
-
+/*
+  value -  lookup variable in environment, taking into account PSRAM
+*/
 object *value (symbol_t n, object *env) {
   while (env != NULL) {
     object *pair = car(env);
+    #if !defined(BOARD_HAS_PSRAM)
     if (pair != NULL && car(pair)->name == n) return pair;
+    #else
+    if (pair != NULL && eqsymbol(car(pair)->name, n)) return pair;
+    #endif
     env = cdr(env);
   }
   return nil;
@@ -1959,7 +2041,7 @@ object *closure (int tc, symbol_t name, object *function, object *args, object *
 object *apply (object *function, object *args, object *env) {
   if (symbolp(function)) {
     builtin_t fname = builtin(function->name);
-    if ((fname < ENDFUNCTIONS) && ((getminmax(fname)>>6) == FUNCTIONS)) {
+    if ((fname < ENDFUNCTIONS) && (fntype(fname) == FUNCTIONS)) {
       Context = fname;
       checkargs(args);
       return ((fn_ptr_type)lookupfn(fname))(args, env);
@@ -1974,7 +2056,7 @@ object *apply (object *function, object *args, object *env) {
     object *result = closure(0, sym(NIL), function, args, &env);
     return eval(result, env);
   }
-  error("illegal function", function);
+  error(illegalfn, function);
   return NULL;
 }
 
@@ -2382,9 +2464,8 @@ void checkanalogread (int pin) {
 #if defined(ESP32) || defined(ARDUINO_ESP32_DEV)
   if (!(pin==0 || pin==2 || pin==4 || (pin>=12 && pin<=15) || (pin>=25 && pin<=27) || (pin>=32 && pin<=36) || pin==39))
     error("invalid pin", number(pin));
-#elif defined(ARDUINO_FEATHER_ESP32)
-  if (!(pin==4 || (pin>=12 && pin<=15) || (pin>=25 && pin<=27) || (pin>=32 && pin<=36) || pin==39))
-    error("invalid pin", number(pin));
+#elif defined(ARDUINO_FEATHER_ESP32) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32_V2)
+  if (!(pin==4 || (pin>=12 && pin<=15) || (pin>=25 && pin<=27) || (pin>=32 && pin<=36) || pin==39)) error("invalid pin", number(pin));
 #elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2_TFT)
   if (!(pin==8 || (pin>=14 && pin<=18))) error("invalid pin", number(pin));
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32_PICO)
@@ -2403,9 +2484,11 @@ void checkanalogread (int pin) {
 }
 
 void checkanalogwrite (int pin) {
-#if defined(ESP32) || defined(ARDUINO_FEATHER_ESP32) || defined(ARDUINO_ESP32_DEV) || defined(ARDUINO_ADAFRUIT_QTPY_ESP32_PICO)
+#if defined(ESP32) || defined(ARDUINO_FEATHER_ESP32) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32_V2) || defined(ARDUINO_ESP32_DEV) \
+  || defined(ARDUINO_ADAFRUIT_QTPY_ESP32_PICO)
   if (!(pin>=25 && pin<=26)) error("invalid pin", number(pin));
-#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2_TFT) || defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2) || defined(ARDUINO_FEATHERS2) || defined(ARDUINO_ESP32S2_DEV)
+#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2_TFT) || defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2) \
+  || defined(ARDUINO_FEATHERS2) || defined(ARDUINO_ESP32S2_DEV)
   if (!(pin>=17 && pin<=18)) error("invalid pin", number(pin));
 #elif defined(ARDUINO_ESP32C3_DEV) | defined(ARDUINO_ESP32S3_DEV) | defined(ARDUINO_ADAFRUIT_QTPY_ESP32C3)
   error2(ANALOGWRITE, "not supported");
@@ -2506,7 +2589,7 @@ int subwidthlist (object *form, int w) {
 */
 void superprint (object *form, int lm, pfun_t pfun) {
   if (atom(form)) {
-    if (symbolp(form) && form->name == sym(NOTHING)) printsymbol(form, pfun);
+    if (isbuiltin(form, NOTHING)) printsymbol(form, pfun);
     else printobject(form, pfun);
   } else if (quoted(form)) {
     pfun('\'');
@@ -4976,19 +5059,21 @@ object *fn_restarti2c (object *args, object *env) {
 }
 
 /*
-  (gc)
+  (gc [print time])
   Forces a garbage collection and prints the number of objects collected, and the time taken.
 */
-object *fn_gc (object *obj, object *env) {
-  int initial = Freespace;
-  unsigned long start = micros();
-  gc(obj, env);
-  unsigned long elapsed = micros() - start;
-  pfstring("Space: ", pserial);
-  pint(Freespace - initial, pserial);
-  pfstring(" bytes, Time: ", pserial);
-  pint(elapsed, pserial);
-  pfstring(" us\n", pserial);
+object *fn_gc (object *args, object *env) {
+  if (args == NULL || first(args) != NULL) {
+    int initial = Freespace;
+    unsigned long start = micros();
+    gc(args, env);
+    unsigned long elapsed = micros() - start;
+    pfstring("Space: ", pserial);
+    pint(Freespace - initial, pserial);
+    pfstring(" bytes, Time: ", pserial);
+    pint(elapsed, pserial);
+    pfstring(" us\n", pserial);
+  } else gc(args, env);
   return nil;
 }
 
@@ -5286,7 +5371,7 @@ object *fn_format (object *args, object *env) {
   object *output = first(args);
   object *obj;
   if (output == nil) { obj = startstring(); pfun = pstr; }
-  else if (output != tee) pfun = pstreamfun(args);
+  else if (!eq(output, tee)) pfun = pstreamfun(args);
   object *formatstr = checkstring(second(args));
   object *save = NULL;
   args = cddr(args);
@@ -5533,6 +5618,36 @@ object *sp_error (object *args, object *env) {
   }
   GCStack = NULL;
   longjmp(*handler, 1);
+}
+
+// SD Card utilities
+
+/*
+  (directory)
+  Returns a list of the filenames of the files on the SD card.
+*/
+object *fn_directory (object *args, object *env) {
+  #if defined(sdcardsupport)
+  (void) env;
+  SD.begin(SDCARD_SS_PIN);
+  File root = SD.open("/");
+  if (!root) error2("problem reading from SD card");
+  object *result = cons(NULL, NULL);
+  object *ptr = result;
+  while (true) {
+    File entry = root.openNextFile();
+    if (!entry) break;
+    object *filename = lispstring((char*)entry.name());
+    cdr(ptr) = cons(filename, NULL);
+    ptr = cdr(ptr);
+  };
+  root.close();
+  return cdr(result);
+  #else
+  (void) args, (void) env;
+  error2("not supported");
+  return nil;
+  #endif
 }
 
 // Wi-Fi
@@ -6194,39 +6309,40 @@ const char string207[] = "apropos-list";
 const char string208[] = "unwind-protect";
 const char string209[] = "ignore-errors";
 const char string210[] = "error";
-const char string211[] = "with-client";
-const char string212[] = "available";
-const char string213[] = "wifi-server";
-const char string214[] = "wifi-softap";
-const char string215[] = "connected";
-const char string216[] = "wifi-localip";
-const char string217[] = "wifi-connect";
-const char string218[] = "with-gfx";
-const char string219[] = "draw-pixel";
-const char string220[] = "draw-line";
-const char string221[] = "draw-rect";
-const char string222[] = "fill-rect";
-const char string223[] = "draw-circle";
-const char string224[] = "fill-circle";
-const char string225[] = "draw-round-rect";
-const char string226[] = "fill-round-rect";
-const char string227[] = "draw-triangle";
-const char string228[] = "fill-triangle";
-const char string229[] = "draw-char";
-const char string230[] = "set-cursor";
-const char string231[] = "set-text-color";
-const char string232[] = "set-text-size";
-const char string233[] = "set-text-wrap";
-const char string234[] = "fill-screen";
-const char string235[] = "set-rotation";
-const char string236[] = "invert-display";
-const char string237[] = ":led-builtin";
-const char string238[] = ":high";
-const char string239[] = ":low";
-const char string240[] = ":input";
-const char string241[] = ":input-pullup";
-const char string242[] = ":input-pulldown";
-const char string243[] = ":output";
+const char string211[] = "directory";
+const char string212[] = "with-client";
+const char string213[] = "available";
+const char string214[] = "wifi-server";
+const char string215[] = "wifi-softap";
+const char string216[] = "connected";
+const char string217[] = "wifi-localip";
+const char string218[] = "wifi-connect";
+const char string219[] = "with-gfx";
+const char string220[] = "draw-pixel";
+const char string221[] = "draw-line";
+const char string222[] = "draw-rect";
+const char string223[] = "fill-rect";
+const char string224[] = "draw-circle";
+const char string225[] = "fill-circle";
+const char string226[] = "draw-round-rect";
+const char string227[] = "fill-round-rect";
+const char string228[] = "draw-triangle";
+const char string229[] = "fill-triangle";
+const char string230[] = "draw-char";
+const char string231[] = "set-cursor";
+const char string232[] = "set-text-color";
+const char string233[] = "set-text-size";
+const char string234[] = "set-text-wrap";
+const char string235[] = "fill-screen";
+const char string236[] = "set-rotation";
+const char string237[] = "invert-display";
+const char string238[] = ":led-builtin";
+const char string239[] = ":high";
+const char string240[] = ":low";
+const char string241[] = ":input";
+const char string242[] = ":input-pullup";
+const char string243[] = ":input-pulldown";
+const char string244[] = ":output";
 
 // Documentation strings
 const char doc0[] = "nil\n"
@@ -6655,7 +6771,7 @@ const char doc186[] = "(restart-i2c stream [read-p])\n"
 "Restarts an i2c-stream.\n"
 "If read-p is nil or omitted the stream is written to.\n"
 "If read-p is an integer it specifies the number of bytes to be read from the stream.";
-const char doc187[] = "(gc)\n"
+const char doc187[] = "(gc [print time])\n"
 "Forces a garbage collection and prints the number of objects collected, and the time taken.";
 const char doc188[] = "(room)\n"
 "Returns the number of free Lisp cells remaining.";
@@ -6711,70 +6827,72 @@ const char doc209[] = "(ignore-errors [forms]*)\n"
 "Evaluates forms ignoring errors.";
 const char doc210[] = "(error controlstring [arguments]*)\n"
 "Signals an error. The message is printed by format using the controlstring and arguments.";
-const char doc211[] = "(with-client (str [address port]) form*)\n"
+const char doc211[] = "(directory)\n"
+"Returns a list of the filenames of the files on the SD card.";
+const char doc212[] = "(with-client (str [address port]) form*)\n"
 "Evaluates the forms with str bound to a wifi-stream.";
-const char doc212[] = "(available stream)\n"
+const char doc213[] = "(available stream)\n"
 "Returns the number of bytes available for reading from the wifi-stream, or zero if no bytes are available.";
-const char doc213[] = "(wifi-server)\n"
+const char doc214[] = "(wifi-server)\n"
 "Starts a Wi-Fi server running. It returns nil.";
-const char doc214[] = "(wifi-softap ssid [password channel hidden])\n"
+const char doc215[] = "(wifi-softap ssid [password channel hidden])\n"
 "Set up a soft access point to establish a Wi-Fi network.\n"
 "Returns the IP address as a string or nil if unsuccessful.";
-const char doc215[] = "(connected stream)\n"
+const char doc216[] = "(connected stream)\n"
 "Returns t or nil to indicate if the client on stream is connected.";
-const char doc216[] = "(wifi-localip)\n"
+const char doc217[] = "(wifi-localip)\n"
 "Returns the IP address of the local network as a string.";
-const char doc217[] = "(wifi-connect [ssid pass])\n"
+const char doc218[] = "(wifi-connect [ssid pass])\n"
 "Connects to the Wi-Fi network ssid using password pass. It returns the IP address as a string.";
-const char doc218[] = "(with-gfx (str) form*)\n"
+const char doc219[] = "(with-gfx (str) form*)\n"
 "Evaluates the forms with str bound to an gfx-stream so you can print text\n"
 "to the graphics display using the standard uLisp print commands.";
-const char doc219[] = "(draw-pixel x y [colour])\n"
+const char doc220[] = "(draw-pixel x y [colour])\n"
 "Draws a pixel at coordinates (x,y) in colour, or white if omitted.";
-const char doc220[] = "(draw-line x0 y0 x1 y1 [colour])\n"
+const char doc221[] = "(draw-line x0 y0 x1 y1 [colour])\n"
 "Draws a line from (x0,y0) to (x1,y1) in colour, or white if omitted.";
-const char doc221[] = "(draw-rect x y w h [colour])\n"
+const char doc222[] = "(draw-rect x y w h [colour])\n"
 "Draws an outline rectangle with its top left corner at (x,y), with width w,\n"
 "and with height h. The outline is drawn in colour, or white if omitted.";
-const char doc222[] = "(fill-rect x y w h [colour])\n"
+const char doc223[] = "(fill-rect x y w h [colour])\n"
 "Draws a filled rectangle with its top left corner at (x,y), with width w,\n"
 "and with height h. The outline is drawn in colour, or white if omitted.";
-const char doc223[] = "(draw-circle x y r [colour])\n"
+const char doc224[] = "(draw-circle x y r [colour])\n"
 "Draws an outline circle with its centre at (x, y) and with radius r.\n"
 "The circle is drawn in colour, or white if omitted.";
-const char doc224[] = "(fill-circle x y r [colour])\n"
+const char doc225[] = "(fill-circle x y r [colour])\n"
 "Draws a filled circle with its centre at (x, y) and with radius r.\n"
 "The circle is drawn in colour, or white if omitted.";
-const char doc225[] = "(draw-round-rect x y w h radius [colour])\n"
+const char doc226[] = "(draw-round-rect x y w h radius [colour])\n"
 "Draws an outline rounded rectangle with its top left corner at (x,y), with width w,\n"
 "height h, and corner radius radius. The outline is drawn in colour, or white if omitted.";
-const char doc226[] = "(fill-round-rect x y w h radius [colour])\n"
+const char doc227[] = "(fill-round-rect x y w h radius [colour])\n"
 "Draws a filled rounded rectangle with its top left corner at (x,y), with width w,\n"
 "height h, and corner radius radius. The outline is drawn in colour, or white if omitted.";
-const char doc227[] = "(draw-triangle x0 y0 x1 y1 x2 y2 [colour])\n"
+const char doc228[] = "(draw-triangle x0 y0 x1 y1 x2 y2 [colour])\n"
 "Draws an outline triangle between (x1,y1), (x2,y2), and (x3,y3).\n"
 "The outline is drawn in colour, or white if omitted.";
-const char doc228[] = "(fill-triangle x0 y0 x1 y1 x2 y2 [colour])\n"
+const char doc229[] = "(fill-triangle x0 y0 x1 y1 x2 y2 [colour])\n"
 "Draws a filled triangle between (x1,y1), (x2,y2), and (x3,y3).\n"
 "The outline is drawn in colour, or white if omitted.";
-const char doc229[] = "(draw-char x y char [colour background size])\n"
+const char doc230[] = "(draw-char x y char [colour background size])\n"
 "Draws the character char with its top left corner at (x,y).\n"
 "The character is drawn in a 5 x 7 pixel font in colour against background,\n"
 "which default to white and black respectively.\n"
 "The character can optionally be scaled by size.";
-const char doc230[] = "(set-cursor x y)\n"
+const char doc231[] = "(set-cursor x y)\n"
 "Sets the start point for text plotting to (x, y).";
-const char doc231[] = "(set-text-color colour [background])\n"
+const char doc232[] = "(set-text-color colour [background])\n"
 "Sets the text colour for text plotted using (with-gfx ...).";
-const char doc232[] = "(set-text-size scale)\n"
+const char doc233[] = "(set-text-size scale)\n"
 "Scales text by the specified size, default 1.";
-const char doc233[] = "(set-text-wrap boolean)\n"
+const char doc234[] = "(set-text-wrap boolean)\n"
 "Specified whether text wraps at the right-hand edge of the display; the default is t.";
-const char doc234[] = "(fill-screen [colour])\n"
+const char doc235[] = "(fill-screen [colour])\n"
 "Fills or clears the screen with colour, default black.";
-const char doc235[] = "(set-rotation option)\n"
+const char doc236[] = "(set-rotation option)\n"
 "Sets the display orientation for subsequent graphics commands; values are 0, 1, 2, or 3.";
-const char doc236[] = "(invert-display boolean)\n"
+const char doc237[] = "(invert-display boolean)\n"
 "Mirror-images the display.";
 
 // Built-in symbol lookup table
@@ -6966,7 +7084,7 @@ const tbl_entry_t lookup_table[] = {
   { string184, fn_writestring, 0212, doc184 },
   { string185, fn_writeline, 0212, doc185 },
   { string186, fn_restarti2c, 0212, doc186 },
-  { string187, fn_gc, 0200, doc187 },
+  { string187, fn_gc, 0201, doc187 },
   { string188, fn_room, 0200, doc188 },
   { string189, fn_saveimage, 0201, doc189 },
   { string190, fn_loadimage, 0201, doc190 },
@@ -6990,39 +7108,40 @@ const tbl_entry_t lookup_table[] = {
   { string208, sp_unwindprotect, 0307, doc208 },
   { string209, sp_ignoreerrors, 0307, doc209 },
   { string210, sp_error, 0317, doc210 },
-  { string211, sp_withclient, 0313, doc211 },
-  { string212, fn_available, 0211, doc212 },
-  { string213, fn_wifiserver, 0200, doc213 },
-  { string214, fn_wifisoftap, 0204, doc214 },
-  { string215, fn_connected, 0211, doc215 },
-  { string216, fn_wifilocalip, 0200, doc216 },
-  { string217, fn_wificonnect, 0203, doc217 },
-  { string218, sp_withgfx, 0317, doc218 },
-  { string219, fn_drawpixel, 0223, doc219 },
-  { string220, fn_drawline, 0245, doc220 },
-  { string221, fn_drawrect, 0245, doc221 },
-  { string222, fn_fillrect, 0245, doc222 },
-  { string223, fn_drawcircle, 0234, doc223 },
-  { string224, fn_fillcircle, 0234, doc224 },
-  { string225, fn_drawroundrect, 0256, doc225 },
-  { string226, fn_fillroundrect, 0256, doc226 },
-  { string227, fn_drawtriangle, 0267, doc227 },
-  { string228, fn_filltriangle, 0267, doc228 },
-  { string229, fn_drawchar, 0236, doc229 },
-  { string230, fn_setcursor, 0222, doc230 },
-  { string231, fn_settextcolor, 0212, doc231 },
-  { string232, fn_settextsize, 0211, doc232 },
-  { string233, fn_settextwrap, 0211, doc233 },
-  { string234, fn_fillscreen, 0201, doc234 },
-  { string235, fn_setrotation, 0211, doc235 },
-  { string236, fn_invertdisplay, 0211, doc236 },
-  { string237, (fn_ptr_type)LED_BUILTIN, 0, NULL },
-  { string238, (fn_ptr_type)HIGH, DIGITALWRITE, NULL },
-  { string239, (fn_ptr_type)LOW, DIGITALWRITE, NULL },
-  { string240, (fn_ptr_type)INPUT, PINMODE, NULL },
-  { string241, (fn_ptr_type)INPUT_PULLUP, PINMODE, NULL },
-  { string242, (fn_ptr_type)INPUT_PULLDOWN, PINMODE, NULL },
-  { string243, (fn_ptr_type)OUTPUT, PINMODE, NULL },
+  { string211, fn_directory, 0200, doc211 },
+  { string212, sp_withclient, 0313, doc212 },
+  { string213, fn_available, 0211, doc213 },
+  { string214, fn_wifiserver, 0200, doc214 },
+  { string215, fn_wifisoftap, 0204, doc215 },
+  { string216, fn_connected, 0211, doc216 },
+  { string217, fn_wifilocalip, 0200, doc217 },
+  { string218, fn_wificonnect, 0203, doc218 },
+  { string219, sp_withgfx, 0317, doc219 },
+  { string220, fn_drawpixel, 0223, doc220 },
+  { string221, fn_drawline, 0245, doc221 },
+  { string222, fn_drawrect, 0245, doc222 },
+  { string223, fn_fillrect, 0245, doc223 },
+  { string224, fn_drawcircle, 0234, doc224 },
+  { string225, fn_fillcircle, 0234, doc225 },
+  { string226, fn_drawroundrect, 0256, doc226 },
+  { string227, fn_fillroundrect, 0256, doc227 },
+  { string228, fn_drawtriangle, 0267, doc228 },
+  { string229, fn_filltriangle, 0267, doc229 },
+  { string230, fn_drawchar, 0236, doc230 },
+  { string231, fn_setcursor, 0222, doc231 },
+  { string232, fn_settextcolor, 0212, doc232 },
+  { string233, fn_settextsize, 0211, doc233 },
+  { string234, fn_settextwrap, 0211, doc234 },
+  { string235, fn_fillscreen, 0201, doc235 },
+  { string236, fn_setrotation, 0211, doc236 },
+  { string237, fn_invertdisplay, 0211, doc237 },
+  { string238, (fn_ptr_type)LED_BUILTIN, 0, NULL },
+  { string239, (fn_ptr_type)HIGH, DIGITALWRITE, NULL },
+  { string240, (fn_ptr_type)LOW, DIGITALWRITE, NULL },
+  { string241, (fn_ptr_type)INPUT, PINMODE, NULL },
+  { string242, (fn_ptr_type)INPUT_PULLUP, PINMODE, NULL },
+  { string243, (fn_ptr_type)INPUT_PULLDOWN, PINMODE, NULL },
+  { string244, (fn_ptr_type)OUTPUT, PINMODE, NULL },
 };
 
 #if !defined(extensions)
@@ -7064,7 +7183,7 @@ builtin_t lookupbuiltin (char* c) {
   lookupfn - looks up the entry for name in lookup_table[], and returns the function entry point
 */
 intptr_t lookupfn (builtin_t name) {
-  int n = name<tablesize(0);
+  bool n = name<tablesize(0);
   return (intptr_t)table(n?0:1)[n?name:name-tablesize(0)].fptr;
 }
 
@@ -7073,7 +7192,7 @@ intptr_t lookupfn (builtin_t name) {
   and minimum and maximum number of arguments for name
 */
 uint8_t getminmax (builtin_t name) {
-  int n = name<tablesize(0);
+  bool n = name<tablesize(0);
   return table(n?0:1)[n?name:name-tablesize(0)].minmax;
 }
 
@@ -7091,7 +7210,7 @@ void checkminmax (builtin_t name, int nargs) {
   lookupdoc - looks up the documentation string for the built-in function name
 */
 char *lookupdoc (builtin_t name) {
-  int n = name<tablesize(0);
+  bool n = name<tablesize(0);
   return (char*)table(n?0:1)[n?name:name-tablesize(0)].doc;
 }
 
@@ -7099,7 +7218,7 @@ char *lookupdoc (builtin_t name) {
   findsubstring - tests whether a specified substring occurs in the name of a built-in function
 */
 bool findsubstring (char *part, builtin_t name) {
-  int n = name<tablesize(0);
+  bool n = name<tablesize(0);
   return (strstr(table(n?0:1)[n?name:name-tablesize(0)].string, part) != NULL);
 }
 
@@ -7123,7 +7242,7 @@ bool colonp (symbol_t name) {
 bool keywordp (object *obj) {
   if (!(symbolp(obj) && builtinp(obj->name))) return false;
   builtin_t name = builtin(obj->name);
-  int n = name<tablesize(0);
+  bool n = name<tablesize(0);
   const char *s = table(n?0:1)[n?name:name-tablesize(0)].string;
   char c = s[0];
   return (c == ':');
@@ -7159,7 +7278,7 @@ object *eval (object *form, object *env) {
     pair = value(name, GlobalEnv);
     if (pair != NULL) return cdr(pair);
     else if (builtinp(name)) {
-      if (builtin(name) == FEATURES) return features();
+      if (name == sym(FEATURES)) return features();
       return form;
     }
     Context = NIL;
@@ -7170,7 +7289,7 @@ object *eval (object *form, object *env) {
   object *function = car(form);
   object *args = cdr(form);
 
-  if (function == NULL) error("illegal function", nil);
+  if (function == NULL) error(illegalfn, function);
   if (!listp(args)) error("can't evaluate a dotted pair", args);
 
   // List starts with a builtin symbol?
@@ -7178,7 +7297,6 @@ object *eval (object *form, object *env) {
     builtin_t name = builtin(function->name);
 
     if ((name == LET) || (name == LETSTAR)) {
-      int TCstart = TC;
       if (args == NULL) error2(noargument);
       object *assigns = first(args);
       if (!listp(assigns)) error(notalist, assigns);
@@ -7197,7 +7315,6 @@ object *eval (object *form, object *env) {
       env = newenv;
       unprotect();
       form = tf_progn(forms,env);
-      TC = TCstart;
       goto EVAL;
     }
 
@@ -7211,47 +7328,50 @@ object *eval (object *form, object *env) {
       }
       return cons(bsymbol(CLOSURE), cons(envcopy,args));
     }
-    uint8_t fntype = getminmax(name)>>6;
 
-    if (fntype == SPECIAL_FORMS) {
-      Context = name;
-      checkargs(args);
-      return ((fn_ptr_type)lookupfn(name))(args, env);
+    switch(fntype(name)) {    
+      case SPECIAL_FORMS:
+        Context = name;
+        checkargs(args);
+        return ((fn_ptr_type)lookupfn(name))(args, env);
+  
+      case TAIL_FORMS:
+        Context = name;
+        checkargs(args);
+        form = ((fn_ptr_type)lookupfn(name))(args, env);
+        TC = 1;
+        goto EVAL;
+     
+      case OTHER_FORMS: error(illegalfn, function);
     }
-
-    if (fntype == TAIL_FORMS) {
-      Context = name;
-      checkargs(args);
-      form = ((fn_ptr_type)lookupfn(name))(args, env);
-      TC = 1;
-      goto EVAL;
-    }
-    if (fntype == OTHER_FORMS) error("can't be used as a function", function);
   }
 
   // Evaluate the parameters - result in head
-  object *fname = car(form);
   int TCstart = TC;
-  object *head = cons(eval(fname, env), NULL);
+  object *head;
+  if (consp(function) && !(isbuiltin(car(function), LAMBDA) || isbuiltin(car(function), CLOSURE)
+    || car(function)->type == CODE)) { Context = NIL; error(illegalfn, function); }
+  if (symbolp(function) && !builtinp(function->name)) head = cons(eval(function, env), NULL); else head = cons(function, NULL);
+
   protect(head); // Don't GC the result list
   object *tail = head;
-  form = cdr(form);
   int nargs = 0;
 
-  while (form != NULL){
-    object *obj = cons(eval(car(form),env),NULL);
+  while (args != NULL) {
+    object *obj = cons(eval(car(args),env),NULL);
     cdr(tail) = obj;
     tail = obj;
-    form = cdr(form);
+    args = cdr(args);
     nargs++;
   }
-
+  
+  object *fname = function;
   function = car(head);
   args = cdr(head);
 
   if (symbolp(function)) {
+    if (!builtinp(function->name)) { Context = NIL; error(illegalfn, function); }
     builtin_t bname = builtin(function->name);
-    if (!builtinp(function->name)) error("not valid here", fname);
     Context = bname;
     checkminmax(bname, nargs);
     object *result = ((fn_ptr_type)lookupfn(bname))(args, env);
@@ -7290,7 +7410,7 @@ object *eval (object *form, object *env) {
     }
 
   }
-  error("illegal function", fname); return nil;
+  error(illegalfn, fname); return nil;
 }
 
 // Print functions
@@ -7920,16 +8040,19 @@ void initgfx () {
   #endif
 }
 
-// Entry point from the Arduino IDE
 void setup () {
   Serial.begin(9600);
   int start = millis();
   while ((millis() - start) < 5000) { if (Serial) break; }
+  #if defined(BOARD_HAS_PSRAM)
+  if (!psramInit()) { Serial.print("the PSRAM couldn't be initialized"); for(;;); }
+  Workspace = (object*) ps_malloc(WORKSPACESIZE);
+  #endif
   initworkspace();
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.6a "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.6b "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
@@ -7940,9 +8063,9 @@ void setup () {
 void repl (object *env) {
   for (;;) {
     randomSeed(micros());
-    gc(NULL, env);
+    if (!tstflag(NOECHO)) gc(NULL, env);
     #if defined(printfreespace)
-    pint(Freespace, pserial);
+    pint(Freespace+1, pserial);
     #endif
     if (BreakLevel) {
       pfstring(" : ", pserial);
