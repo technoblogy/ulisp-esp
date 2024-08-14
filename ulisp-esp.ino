@@ -1,5 +1,5 @@
-/* uLisp ESP Release 4.6b - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 26th July 2024
+/* uLisp ESP Release 4.6c - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 14th August 2024
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -54,7 +54,7 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 #define BUFFERSIZE 36  // Number of bits+4
 
 #if defined(ARDUINO_FEATHER_ESP32)
-  #define WORKSPACESIZE (9500-SDSIZE)            /* Cells (8*bytes) */
+  #define WORKSPACESIZE (9500-SDSIZE)            /* Objects (8*bytes) */
   #define LITTLEFS
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
@@ -62,9 +62,9 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 
 #elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32_V2)
   #if defined(BOARD_HAS_PSRAM)
-  #define WORKSPACESIZE 260000                   /* Cells (8*bytes) */
+  #define WORKSPACESIZE 260000                   /* Objects (8*bytes) */
   #else
-  #define WORKSPACESIZE (9500-SDSIZE)            /* Cells (8*bytes) */
+  #define WORKSPACESIZE (9500-SDSIZE)            /* Objects (8*bytes) */
   #endif
   #define LITTLEFS
   #include <LittleFS.h>
@@ -73,9 +73,9 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 
 #elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2_TFT)
   #if defined(BOARD_HAS_PSRAM)
-  #define WORKSPACESIZE 260000                   /* Cells (8*bytes) */
+  #define WORKSPACESIZE 260000                   /* Objects (8*bytes) */
   #else
-  #define WORKSPACESIZE (7232-SDSIZE)            /* Cells (8*bytes) */
+  #define WORKSPACESIZE (7232-SDSIZE)            /* Objects (8*bytes) */
   #endif
   #define LITTLEFS
   #include <LittleFS.h>
@@ -84,9 +84,9 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32_PICO)
   #if defined(BOARD_HAS_PSRAM)
-  #define WORKSPACESIZE 260000                   /* Cells (8*bytes) */
+  #define WORKSPACESIZE 260000                   /* Objects (8*bytes) */
   #else
-  #define WORKSPACESIZE (9500-SDSIZE)            /* Cells (8*bytes) */
+  #define WORKSPACESIZE (9500-SDSIZE)            /* Objects (8*bytes) */
   #endif
   #define LITTLEFS
   #include <LittleFS.h>
@@ -95,9 +95,9 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
   
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2)
   #if defined(BOARD_HAS_PSRAM)
-  #define WORKSPACESIZE 260000                   /* Cells (8*bytes) */
+  #define WORKSPACESIZE 260000                   /* Objects (8*bytes) */
   #else
-  #define WORKSPACESIZE (7232-SDSIZE)            /* Cells (8*bytes) */
+  #define WORKSPACESIZE (7232-SDSIZE)            /* Objects (8*bytes) */
   #endif
   #define LITTLEFS
   #include <LittleFS.h>
@@ -106,7 +106,7 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
   #define LED_BUILTIN 13
   
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32C3)
-  #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
+  #define WORKSPACESIZE (9216-SDSIZE)            /* Objects (8*bytes) */
   #define LITTLEFS
   #include <LittleFS.h>
   #define SDCARD_SS_PIN 13
@@ -114,9 +114,9 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 
 #elif defined(ARDUINO_FEATHERS2)                 /* UM FeatherS2 */
   #if defined(BOARD_HAS_PSRAM)
-  #define WORKSPACESIZE 1000000                  /* Cells (8*bytes) */
+  #define WORKSPACESIZE 1000000                  /* Objects (8*bytes) */
   #else
-  #define WORKSPACESIZE (8160-SDSIZE)            /* Cells (8*bytes) */
+  #define WORKSPACESIZE (8160-SDSIZE)            /* Objects (8*bytes) */
   #endif
   #define LITTLEFS
   #include <LittleFS.h>
@@ -124,8 +124,12 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
   #define SDCARD_SS_PIN 13
   #define LED_BUILTIN 13
 
-#elif defined(ARDUINO_ESP32_DEV)                 /* For TTGO T-Display */
-  #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
+#elif defined(ARDUINO_ESP32_DEV)                 /* For TTGO T-Display etc. */
+  #if defined(BOARD_HAS_PSRAM)
+  #define WORKSPACESIZE 260000                   /* Objects (8*bytes) */
+  #else
+  #define WORKSPACESIZE (9216-SDSIZE)            /* Objects (8*bytes) */
+  #endif
   #define LITTLEFS
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
@@ -134,9 +138,9 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 
 #elif defined(ARDUINO_ESP32S2_DEV)
   #if defined(BOARD_HAS_PSRAM)
-  #define WORKSPACESIZE 260000                  /* Cells (8*bytes) */
+  #define WORKSPACESIZE 260000                   /* Objects (8*bytes) */
   #else
-  #define WORKSPACESIZE (8160-SDSIZE)            /* Cells (8*bytes) */
+  #define WORKSPACESIZE (8160-SDSIZE)            /* Objects (8*bytes) */
   #endif
   #define LITTLEFS
   #include <LittleFS.h>
@@ -145,21 +149,21 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
   #define LED_BUILTIN 13
 
 #elif defined(ARDUINO_ESP32C3_DEV)
-  #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
+  #define WORKSPACESIZE (9216-SDSIZE)            /* Objects (8*bytes) */
   #define LITTLEFS
   #include <LittleFS.h>
   #define SDCARD_SS_PIN 13
   #define LED_BUILTIN 13
 
 #elif defined(ARDUINO_ESP32S3_DEV)
-  #define WORKSPACESIZE (22000-SDSIZE)           /* Cells (8*bytes) */
+  #define WORKSPACESIZE (22000-SDSIZE)           /* Objects (8*bytes) */
   #define LITTLEFS
   #include <LittleFS.h>
   #define SDCARD_SS_PIN 13
   #define LED_BUILTIN 13
 
 #elif defined(ESP32)                             /* Generic ESP32 board */
-  #define WORKSPACESIZE (9216-SDSIZE)            /* Cells (8*bytes) */
+  #define WORKSPACESIZE (9216-SDSIZE)            /* Objects (8*bytes) */
   #define LITTLEFS
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
@@ -706,7 +710,7 @@ int EpromReadInt (int *addr) {
 unsigned int saveimage (object *arg) {
 #if defined(sdcardsupport)
   unsigned int imagesize = compactimage(&arg);
-  SD.begin(SDCARD_SS_PIN);
+  SD.begin();;
   File file;
   if (stringp(arg)) {
     char buffer[BUFFERSIZE];
@@ -781,7 +785,7 @@ unsigned int saveimage (object *arg) {
 
 unsigned int loadimage (object *arg) {
 #if defined(sdcardsupport)
-  SD.begin(SDCARD_SS_PIN);
+  SD.begin();;
   File file;
   if (stringp(arg)) {
     char buffer[BUFFERSIZE];
@@ -853,7 +857,7 @@ unsigned int loadimage (object *arg) {
 
 void autorunimage () {
 #if defined(sdcardsupport)
-  SD.begin(SDCARD_SS_PIN);
+  SD.begin();;
   File file = SD.open("/ULISP.IMG");
   if (!file) error2("problem autorunning from SD card");
   object *autorun = (object *)SDReadInt(file);
@@ -2131,7 +2135,7 @@ void checkanalogread (int pin) {
   if (!((pin>=5 && pin<=9) || (pin>=16 && pin<=18))) error("invalid pin", number(pin));
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32C3)
   if (!((pin>=0 && pin<=1) || (pin>=3 && pin<=5))) error("invalid pin", number(pin));
-#elif defined(ARDUINO_FEATHERS2) | defined(ARDUINO_ESP32S2_DEV)
+#elif defined(ARDUINO_FEATHERS2) || defined(ARDUINO_ESP32S2_DEV)
   if (!((pin>=1 && pin<=20))) error("invalid pin", number(pin));
 #elif defined(ARDUINO_ESP32C3_DEV)
   if (!((pin>=0 && pin<=5))) error("invalid pin", number(pin));
@@ -2147,7 +2151,7 @@ void checkanalogwrite (int pin) {
 #elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2_TFT) || defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2) \
   || defined(ARDUINO_FEATHERS2) || defined(ARDUINO_ESP32S2_DEV)
   if (!(pin>=17 && pin<=18)) error("invalid pin", number(pin));
-#elif defined(ARDUINO_ESP32C3_DEV) | defined(ARDUINO_ESP32S3_DEV) | defined(ARDUINO_ADAFRUIT_QTPY_ESP32C3)
+#elif defined(ARDUINO_ESP32C3_DEV) || defined(ARDUINO_ESP32S3_DEV) || defined(ARDUINO_ADAFRUIT_QTPY_ESP32C3)
   error2(ANALOGWRITE, "not supported");
 #endif
 }
@@ -2710,7 +2714,7 @@ object *sp_withsdcard (object *args, object *env) {
   Context = temp;
   if (!stringp(filename)) error("filename is not a string", filename);
   params = cdr(params);
-  SD.begin();
+  SD.begin();;
   int mode = 0;
   if (params != NULL && first(params) != NULL) mode = checkinteger(first(params));
   const char *oflag = FILE_READ;
@@ -4420,7 +4424,7 @@ object *sp_error (object *args, object *env) {
 object *fn_directory (object *args, object *env) {
   #if defined(sdcardsupport)
   (void) env;
-  SD.begin(SDCARD_SS_PIN);
+  SD.begin();;
   File root = SD.open("/");
   if (!root) error2("problem reading from SD card");
   object *result = cons(NULL, NULL);
@@ -4431,7 +4435,8 @@ object *fn_directory (object *args, object *env) {
     object *filename = lispstring((char*)entry.name());
     cdr(ptr) = cons(filename, NULL);
     ptr = cdr(ptr);
-  };
+    entry.close();
+  }
   root.close();
   return cdr(result);
   #else
@@ -6594,13 +6599,14 @@ void setup () {
   while ((millis() - start) < 5000) { if (Serial) break; }
   #if defined(BOARD_HAS_PSRAM)
   if (!psramInit()) { Serial.print("the PSRAM couldn't be initialized"); for(;;); }
-  Workspace = (object*) ps_malloc(WORKSPACESIZE);
+  Workspace = (object*) ps_malloc(WORKSPACESIZE*8);
+  if (!Workspace) { Serial.print("the Workspace couldn't be allocated"); for(;;); }
   #endif
   initworkspace();
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.6b "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.6c "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
