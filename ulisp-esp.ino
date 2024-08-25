@@ -1,5 +1,5 @@
-/* uLisp ESP Release 4.6c - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 14th August 2024
+/* uLisp ESP Release 4.6d - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 25th August 2024
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -5788,7 +5788,7 @@ const tbl_entry_t lookup_table[] = {
   { string209, sp_ignoreerrors, 0307, doc209 },
   { string210, sp_error, 0317, doc210 },
   { string211, fn_directory, 0200, doc211 },
-  { string212, sp_withclient, 0313, doc212 },
+  { string212, sp_withclient, 0317, doc212 },
   { string213, fn_available, 0211, doc213 },
   { string214, fn_wifiserver, 0200, doc214 },
   { string215, fn_wifisoftap, 0204, doc215 },
@@ -6606,7 +6606,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.6c "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.6d "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
