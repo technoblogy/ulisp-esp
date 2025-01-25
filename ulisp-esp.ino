@@ -1,5 +1,5 @@
-/* uLisp ESP Release 4.7 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 3rd November 2024
+/* uLisp ESP Release 4.7a - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 25th January 2025
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -200,6 +200,28 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
   #define LITTLEFS
   #include <LittleFS.h>
   #define SDCARD_SS_PIN 13
+  #define LED_BUILTIN 13
+  #define CPU_RISC_V
+
+// ESP32-C6 boards ***************************************************************
+
+#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32C6)
+  #define WORKSPACESIZE (9216-SDSIZE)            /* Objects (8*bytes) */
+  #define MAX_STACK 8000
+  #define LITTLEFS
+  #include <LittleFS.h>
+  #define SDCARD_SS_PIN 13
+  #define LED_BUILTIN 13
+  #define CPU_RISC_V
+
+// ESP32-P4 boards ***************************************************************
+
+#elif defined(ARDUINO_ESP32P4_DEV)
+  #define WORKSPACESIZE 27000           /* Objects (8*bytes) */
+  #define MAX_STACK 8000
+  #define LITTLEFS
+  #include <LittleFS.h> 
+  #define SDCARD_SS_PIN 26
   #define LED_BUILTIN 13
   #define CPU_RISC_V
 
@@ -2236,6 +2258,8 @@ void checkanalogread (int pin) {
   if (!((pin>=0 && pin<=5))) error("invalid pin", number(pin));
 #elif defined(ARDUINO_ESP32S3_DEV)
   if (!((pin>=1 && pin<=20))) error("invalid pin", number(pin));
+#elif defined(ARDUINO_ESP32P4_DEV)
+  if (!((pin>=16 && pin<=23) || (pin>=49 && pin<=54))) error("invalid pin", number(pin));
 #endif
 }
 
@@ -6016,7 +6040,6 @@ void backtrace (symbol_t name) {
 
 object *eval (object *form, object *env) {
   bool stackpos;
-  static unsigned long start = 0;
   int TC=0;
   EVAL:
   // Enough space?
@@ -6733,7 +6756,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.7 "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.7a "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
