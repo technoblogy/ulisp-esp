@@ -1,5 +1,5 @@
-/* uLisp ESP Release 4.7c - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 26th April 2025
+/* uLisp ESP Release 4.7d - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 30th April 2025
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -6034,7 +6034,7 @@ bool findsubstring (char *part, builtin_t name) {
 }
 
 void testescape () {
-  static uint16_t n;
+  static unsigned long n;
   if (millis()-n < 500) return;
   n = millis();
   if (Serial.available() && Serial.read() == '~') error2("escape!");
@@ -6782,7 +6782,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.7c "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.7d "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
