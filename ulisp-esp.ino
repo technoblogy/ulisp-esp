@@ -1,5 +1,5 @@
 /* uLisp ESP Release 4.8 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - Unreleased
+   David Johnson-Davies - www.technoblogy.com - 25th May 2025
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
