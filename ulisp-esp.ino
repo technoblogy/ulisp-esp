@@ -1,5 +1,5 @@
-/* uLisp ESP Release 4.7d - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 30th April 2025
+/* uLisp ESP Release 4.8 - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - Unreleased
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -18,6 +18,7 @@ const char LispLibrary[] = "";
 // #define lineeditor
 // #define vt100
 // #define extensions
+// #define streamextensions
 
 // Includes
 
@@ -29,15 +30,25 @@ const char LispLibrary[] = "";
 #include <WiFi.h>
 
 #if defined(gfxsupport)
+#include <Adafruit_GFX.h>    // Core graphics library
+#if defined(ARDUINO_TTGO_LoRa32_v21new)
+#include <Adafruit_SSD1306.h>
+#define COLOR_WHITE 1
+#define COLOR_BLACK 0
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+#define OLED_RESET 16
+Adafruit_SSD1306 tft(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
+#else
+#include <Adafruit_ST7789.h>
 #define COLOR_WHITE ST77XX_WHITE
 #define COLOR_BLACK ST77XX_BLACK
-#include <Adafruit_GFX.h>    // Core graphics library
-#include <Adafruit_ST7789.h> // Hardware-specific library for ST7789
 #if defined(ARDUINO_ESP32_DEV)
 Adafruit_ST7789 tft = Adafruit_ST7789(5, 16, 19, 18);
 #define TFT_BACKLITE 4
 #else
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
+#endif
 #endif
 #endif
 
@@ -102,6 +113,16 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
   #include <LittleFS.h>
   #define SDCARD_SS_PIN 13
   #define LED_BUILTIN 13
+  #define CPU_LX6
+
+#elif defined(ARDUINO_TTGO_LoRa32_v21new)
+  #define WORKSPACESIZE 9800                     /* Objects (8*bytes) */
+  #define MAX_STACK 7000
+  #define LITTLEFS
+  #include <LittleFS.h>
+  #define SDCARD_SS_PIN 13
+  #define LED_BUILTIN 13
+  SPIClass hspi(HSPI);
   #define CPU_LX6
   
 // ESP32-S2 boards ***************************************************************
@@ -294,21 +315,11 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 
 // Constants
 
+#define USERSTREAMS        16
 #define TRACEMAX 3  // Maximum number of traced functions
 enum type { ZZERO=0, SYMBOL=2, CODE=4, NUMBER=6, STREAM=8, CHARACTER=10, FLOAT=12, ARRAY=14, STRING=16, PAIR=18 };  // ARRAY STRING and PAIR must be last
 enum token { UNUSED, BRA, KET, QUO, DOT };
-enum stream { SERIALSTREAM, I2CSTREAM, SPISTREAM, SDSTREAM, WIFISTREAM, STRINGSTREAM, GFXSTREAM };
 enum fntypes_t { OTHER_FORMS, TAIL_FORMS, FUNCTIONS, SPECIAL_FORMS };
-
-// Stream names used by printobject
-const char serialstream[] = "serial";
-const char i2cstream[] = "i2c";
-const char spistream[] = "spi";
-const char sdstream[] = "sd";
-const char wifistream[] = "wifi";
-const char stringstream[] = "string";
-const char gfxstream[] = "gfx";
-const char *const streamname[] = {serialstream, i2cstream, spistream, sdstream, wifistream, stringstream, gfxstream};
 
 // Typedefs
 
@@ -344,8 +355,21 @@ typedef const struct {
   const char *doc;
 } tbl_entry_t;
 
+// Stream typedefs
+
+typedef uint8_t nstream_t;
+
 typedef int (*gfun_t)();
 typedef void (*pfun_t)(char);
+
+typedef pfun_t (*pstream_ptr_t)(uint8_t address);
+typedef gfun_t (*gstream_ptr_t)(uint8_t address);
+
+typedef const struct {
+  const char *streamname;
+  pstream_ptr_t pfunptr;
+  gstream_ptr_t gfunptr;
+} stream_entry_t;
 
 enum builtins: builtin_t { NIL, TEE, NOTHING, OPTIONAL, FEATURES, INITIALELEMENT, ELEMENTTYPE, TEST, COLONA, COLONB,
 COLONC, BIT, AMPREST, LAMBDA, LET, LETSTAR, CLOSURE, PSTAR, QUOTE, DEFUN, DEFVAR, EQ, CAR, FIRST, CDR,
@@ -768,8 +792,13 @@ char *MakeFilename (object *arg, char *buffer) {
 
 #if defined(sdcardsupport)
 
-void SDBegin() {
+void SDBegin () {
+  #if defined(ARDUINO_TTGO_LoRa32_v21new)
+  hspi.begin(14, 2, 15, SDCARD_SS_PIN);
+  SD.begin(SDCARD_SS_PIN, hspi);
+  #else
   SD.begin();
+  #endif
 }
 
 void SDWriteInt (File file, int data) {
@@ -1597,11 +1626,6 @@ uint8_t nthchar (object *string, int n) {
 }
 
 int gstr () {
-  if (LastChar) {
-    char temp = LastChar;
-    LastChar = 0;
-    return temp;
-  }
   char c = nthchar(GlobalString, GlobalStringIndex++);
   if (c != 0) return c;
   return '\n'; // -1?
@@ -2127,38 +2151,44 @@ void I2Cstop (TwoWire *port, uint8_t read) {
 
 // Streams
 
+enum stream { SERIALSTREAM, I2CSTREAM, SPISTREAM, SDSTREAM, WIFISTREAM, STRINGSTREAM, GFXSTREAM };
+
 // Simplify board differences
 #if defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2)
-#define ULISP_I2C1
+#define ULISP_HOWMANYI2C = 2
 #endif
 
-inline int spiread () { return SPI.transfer(0); }
-inline int i2cread () { return I2Cread(&Wire); }
-#if defined(ULISP_I2C1)
-inline int i2c1read () { return I2Cread(&Wire1); }
-#endif
-inline int serial1read () { while (!Serial1.available()) testescape(); return Serial1.read(); }
-#if defined(sdcardsupport)
-File SDpfile, SDgfile;
-inline int SDread () {
-  if (LastChar) {
-    char temp = LastChar;
-    LastChar = 0;
-    return temp;
-  }
-  return SDgfile.read();
-}
-#endif
+#define ULISP_WIFI
 
 WiFiClient client;
 WiFiServer server(80);
 
-inline int WiFiread () {
-  if (LastChar) {
-    char temp = LastChar;
-    LastChar = 0;
-    return temp;
-  }
+void spiwrite (char c) { SPI.transfer(c); }
+void i2cwrite (char c) { I2Cwrite(&Wire, c); }
+#if ULISP_HOWMANYI2C == 2
+void i2c1write (char c) { I2Cwrite(&Wire1, c); }
+#endif
+void serial1write (char c) { Serial1.write(c); }
+void WiFiwrite (char c) { client.write(c); }
+#if defined(sdcardsupport)
+File SDpfile, SDgfile;
+void SDwrite (char c) { SDpfile.write(c); }
+#endif
+#if defined(gfxsupport)
+void gfxwrite (char c) { tft.write(c); }
+#endif
+
+int spiread () { return SPI.transfer(0); }
+int i2cread () { return I2Cread(&Wire); }
+#if ULISP_HOWMANYI2C == 2
+int i2c1read () { return I2Cread(&Wire1); }
+#endif
+int serial1read () { while (!Serial1.available()) testescape(); return Serial1.read(); }
+#if defined(sdcardsupport)
+int SDread () { return SDgfile.read(); }
+#endif
+
+int WiFiread () {
   while (!client.available()) testescape();
   return client.read();
 }
@@ -2173,76 +2203,152 @@ void serialend (int address) {
   else error("port not supported", number(address));
 }
 
-gfun_t gstreamfun (object *args) {
-  int streamtype = SERIALSTREAM;
-  int address = 0;
-  gfun_t gfun = gserial;
-  if (args != NULL) {
-    int stream = isstream(first(args));
-    streamtype = stream>>8; address = stream & 0xFF;
-  }
-  if (streamtype == I2CSTREAM) {
-    if (address < 128) gfun = i2cread;
-    #if defined(ULISP_I2C1)
-    else gfun = i2c1read;
-    #endif
-  } else if (streamtype == SPISTREAM) gfun = spiread;
-  else if (streamtype == SERIALSTREAM) {
-    if (address == 0) gfun = gserial;
-    else if (address == 1) gfun = serial1read;
-  }
-  #if defined(sdcardsupport)
-  else if (streamtype == SDSTREAM) gfun = (gfun_t)SDread;
+// Stream writing functions
+
+pfun_t pfun_i2c (uint8_t address) {
+  pfun_t pfun;
+  if (address < 128) pfun = i2cwrite;
+  #if ULISP_HOWMANYI2C == 2
+  else pfun = i2c1write;
   #endif
-  else if (streamtype == WIFISTREAM) gfun = (gfun_t)WiFiread;
-  else error2("unknown stream type");
+  return pfun;
+}
+
+pfun_t pfun_spi (uint8_t address) {
+  (void) address;
+  return spiwrite;
+}
+
+pfun_t pfun_serial (uint8_t address) {
+  pfun_t pfun;
+  if (address == 0) pfun = pserial;
+  else if (address == 1) pfun = serial1write;
+  return pfun;
+}
+
+pfun_t pfun_string (uint8_t address) {  
+  (void) address;
+  return pstr;
+}
+
+pfun_t pfun_sd (uint8_t address) {
+  pfun_t pfun;
+  #if defined(sdcardsupport)
+  pfun = (pfun_t)SDwrite;
+  #endif
+  return pfun;
+}
+
+pfun_t pfun_gfx (uint8_t address) {  
+  pfun_t pfun;
+  #if defined(gfxsupport)
+  pfun = (pfun_t)gfxwrite;
+  #endif
+  return pfun;
+}
+
+pfun_t pfun_wifi (uint8_t address) {  
+  pfun_t pfun;
+  #if defined(ULISP_WIFI)
+  pfun = (pfun_t)WiFiwrite;
+  #endif
+  return pfun;
+}
+
+// Stream reading functions
+
+gfun_t gfun_i2c (uint8_t address) {
+  gfun_t gfun;
+  if (address < 128) gfun = i2cread;
+  #if ULISP_HOWMANYI2C == 2
+  else gfun = i2c1read;
+  #endif
   return gfun;
 }
 
-inline void spiwrite (char c) { SPI.transfer(c); }
-inline void i2cwrite (char c) { I2Cwrite(&Wire, c); }
-#if defined(ULISP_I2C1)
-inline void i2c1write (char c) { I2Cwrite(&Wire1, c); }
-#endif
-inline void serial1write (char c) { Serial1.write(c); }
-inline void WiFiwrite (char c) { client.write(c); }
-#if defined(sdcardsupport)
-inline void SDwrite (char c) { SDpfile.write(c); }
-#endif
-#if defined(gfxsupport)
-inline void gfxwrite (char c) { tft.write(c); }
+gfun_t gfun_spi (uint8_t address) {
+  return spiread;
+}
+
+gfun_t gfun_serial (uint8_t address) {
+  gfun_t gfun;
+  if (address == 0) gfun = gserial;
+  else if (address == 1) gfun = serial1read;
+  return gfun;
+}
+
+gfun_t gfun_sd (uint8_t address) {
+  gfun_t gfun;
+  #if defined(sdcardsupport)
+  gfun = (gfun_t)SDread;
+  #endif
+  return gfun;
+}
+
+gfun_t gfun_wifi (uint8_t address) {  
+  gfun_t gfun;
+  #if defined(ULISP_WIFI)
+  gfun = (gfun_t)WiFiread;
+  #endif
+  return gfun;
+}
+
+// Stream names used by printobject
+const char serialstreamname[] = "serial";
+const char i2cstreamname[] = "i2c";
+const char spistreamname[] = "spi";
+const char sdstreamname[] = "sd";
+const char wifistreamname[] = "wifi";
+const char stringstreamname[] = "string";
+const char gfxstreamname[] = "gfx";
+
+// Stream lookup table - needs to be in same order as enum stream
+const stream_entry_t stream_table[] = {
+  { serialstreamname, pfun_serial, gfun_serial },
+  { i2cstreamname, pfun_i2c, gfun_i2c },
+  { spistreamname, pfun_spi, gfun_spi },
+  { sdstreamname, pfun_sd, gfun_sd },
+  { wifistreamname, pfun_wifi, gfun_wifi },
+  { stringstreamname, pfun_string, NULL },
+  { gfxstreamname, pfun_gfx, NULL },
+};
+
+#if !defined(streamextensions)
+// Stream table cross-reference functions
+
+stream_entry_t *streamtables[] = {stream_table, NULL};
+
+const stream_entry_t *streamtable (int n) {
+  return streamtables[n];
+}
 #endif
 
 pfun_t pstreamfun (object *args) {
-  int streamtype = SERIALSTREAM;
+  nstream_t nstream = SERIALSTREAM;
   int address = 0;
   pfun_t pfun = pserial;
   if (args != NULL && first(args) != NULL) {
     int stream = isstream(first(args));
-    streamtype = stream>>8; address = stream & 0xFF;
+    nstream = stream>>8; address = stream & 0xFF;
   }
-  if (streamtype == I2CSTREAM) {
-    if (address < 128) pfun = i2cwrite;
-    #if defined(ULISP_I2C1)
-    else pfun = i2c1write;
-    #endif
-  } else if (streamtype == SPISTREAM) pfun = spiwrite;
-  else if (streamtype == SERIALSTREAM) {
-    if (address == 0) pfun = pserial;
-    else if (address == 1) pfun = serial1write;
-  }
-  else if (streamtype == STRINGSTREAM) {
-    pfun = pstr;
-  }
-  #if defined(sdcardsupport)
-  else if (streamtype == SDSTREAM) pfun = (pfun_t)SDwrite;
-  #endif
-  #if defined(gfxsupport)
-  else if (streamtype == GFXSTREAM) pfun = (pfun_t)gfxwrite;
-  #endif
-  else if (streamtype == WIFISTREAM) pfun = (pfun_t)WiFiwrite;
-  else error2("unknown stream type");
+  bool n = nstream<USERSTREAMS;
+  pstream_ptr_t streamfunction = streamtable(n?0:1)[n?nstream:nstream-USERSTREAMS].pfunptr;
+  pfun = streamfunction(address);
   return pfun;
+}
+
+gfun_t gstreamfun (object *args) {
+  nstream_t nstream = SERIALSTREAM;
+  int address = 0;
+  gfun_t gfun = gserial;
+  if (args != NULL) {
+    int stream = isstream(first(args));
+    nstream = stream>>8; address = stream & 0xFF;
+  }
+  bool n = nstream<USERSTREAMS;
+  gstream_ptr_t streamfunction = streamtable(n?0:1)[n?nstream:nstream-USERSTREAMS].gfunptr;
+  gfun = streamfunction(address);
+  return gfun;
 }
 
 // Check pins
@@ -3063,7 +3169,7 @@ object *fn_caaar (object *args, object *env) {
 
 object *fn_caadr (object *args, object *env) {
   (void) env;
-  return cxxxr(args, 0b1001);;
+  return cxxxr(args, 0b1001);
 }
 
 object *fn_cadar (object *args, object *env) {
@@ -3883,8 +3989,7 @@ object *fn_readfromstring (object *args, object *env) {
   object *arg = checkstring(first(args));
   GlobalString = arg;
   GlobalStringIndex = 0;
-  object *val = read(gstr);
-  LastChar = 0;
+  object *val = readmain(gstr);
   return val;
 }
 
@@ -4003,7 +4108,7 @@ object *fn_break (object *args, object *env) {
 object *fn_read (object *args, object *env) {
   (void) env;
   gfun_t gfun = gstreamfun(args);
-  return read(gfun);
+  return readmain(gfun);
 }
 
 object *fn_prin1 (object *args, object *env) {
@@ -4340,7 +4445,7 @@ object *fn_format (object *args, object *env) {
   object *formatstr = checkstring(second(args));
   object *save = NULL;
   args = cddr(args);
-  int len = stringlength(formatstr);
+  uint16_t len = stringlength(formatstr);
   uint16_t n = 0, width = 0, w, bra = 0;
   char pad = ' ';
   bool tilde = false, mute = false, comma = false, quote = false;
@@ -4419,7 +4524,7 @@ object *fn_require (object *args, object *env) {
     globals = cdr(globals);
   }
   GlobalStringIndex = 0;
-  object *line = read(glibrary);
+  object *line = readmain(glibrary);
   while (line != NULL) {
     // Is this the definition we want
     symbol_t fname = first(line)->name;
@@ -4427,7 +4532,7 @@ object *fn_require (object *args, object *env) {
       eval(line, env);
       return tee;
     }
-    line = read(glibrary);
+    line = readmain(glibrary);
   }
   return nil;
 }
@@ -4435,13 +4540,13 @@ object *fn_require (object *args, object *env) {
 object *fn_listlibrary (object *args, object *env) {
   (void) args, (void) env;
   GlobalStringIndex = 0;
-  object *line = read(glibrary);
+  object *line = readmain(glibrary);
   while (line != NULL) {
     builtin_t bname = builtin(first(line)->name);
     if (bname == DEFUN || bname == DEFVAR) {
       printsymbol(second(line), pserial); pserial(' ');
     }
-    line = read(glibrary);
+    line = readmain(glibrary);
   }
   return bsymbol(NOTHING);
 }
@@ -4903,6 +5008,14 @@ object *fn_invertdisplay (object *args, object *env) {
   return nil;
 }
 
+object *fn_display (object *args, object *env) {
+  (void) args, (void) env;
+  #if defined(gfxsupport)
+  tft.display();
+  #endif
+  return nil;
+}
+
 // Built-in symbol names
 const char string0[] = "nil";
 const char string1[] = "t";
@@ -5147,13 +5260,14 @@ const char string239[] = "set-text-wrap";
 const char string240[] = "fill-screen";
 const char string241[] = "set-rotation";
 const char string242[] = "invert-display";
-const char string243[] = ":led-builtin";
-const char string244[] = ":high";
-const char string245[] = ":low";
-const char string246[] = ":input";
-const char string247[] = ":input-pullup";
-const char string248[] = ":input-pulldown";
-const char string249[] = ":output";
+const char string243[] = "display";
+const char string244[] = ":led-builtin";
+const char string245[] = ":high";
+const char string246[] = ":low";
+const char string247[] = ":input";
+const char string248[] = ":input-pullup";
+const char string249[] = ":input-pulldown";
+const char string250[] = ":output";
 
 // Documentation strings
 const char doc0[] = "nil\n"
@@ -5721,6 +5835,8 @@ const char doc241[] = "(set-rotation option)\n"
 "Sets the display orientation for subsequent graphics commands; values are 0, 1, 2, or 3.";
 const char doc242[] = "(invert-display boolean)\n"
 "Mirror-images the display.";
+const char doc243[] = "(display)\n"
+"Needed on OLED displays to update the display from the memory buffer.";
 
 // Built-in symbol lookup table
 const tbl_entry_t lookup_table[] = {
@@ -5967,13 +6083,14 @@ const tbl_entry_t lookup_table[] = {
   { string240, fn_fillscreen, 0201, doc240 },
   { string241, fn_setrotation, 0211, doc241 },
   { string242, fn_invertdisplay, 0211, doc242 },
-  { string243, (fn_ptr_type)LED_BUILTIN, 0, NULL },
-  { string244, (fn_ptr_type)HIGH, DIGITALWRITE, NULL },
-  { string245, (fn_ptr_type)LOW, DIGITALWRITE, NULL },
-  { string246, (fn_ptr_type)INPUT, PINMODE, NULL },
-  { string247, (fn_ptr_type)INPUT_PULLUP, PINMODE, NULL },
-  { string248, (fn_ptr_type)INPUT_PULLDOWN, PINMODE, NULL },
-  { string249, (fn_ptr_type)OUTPUT, PINMODE, NULL },
+  { string243, fn_display, 0200, doc243 },
+  { string244, (fn_ptr_type)LED_BUILTIN, 0, NULL },
+  { string245, (fn_ptr_type)HIGH, DIGITALWRITE, NULL },
+  { string246, (fn_ptr_type)LOW, DIGITALWRITE, NULL },
+  { string247, (fn_ptr_type)INPUT, PINMODE, NULL },
+  { string248, (fn_ptr_type)INPUT_PULLUP, PINMODE, NULL },
+  { string249, (fn_ptr_type)INPUT_PULLDOWN, PINMODE, NULL },
+  { string250, (fn_ptr_type)OUTPUT, PINMODE, NULL },
 };
 
 #if !defined(extensions)
@@ -6421,7 +6538,10 @@ void plist (object *form, pfun_t pfun) {
 
 void pstream (object *form, pfun_t pfun) {
   pfun('<');
-  pfstring(streamname[(form->integer)>>8], pfun);
+  nstream_t nstream = (form->integer)>>8;
+  bool n = nstream<USERSTREAMS;
+  const char *streamname = streamtable(n?0:1)[n?nstream:nstream-USERSTREAMS].streamname;
+  pfstring(streamname, pfun);
   pfstring("-stream ", pfun);
   pint(form->integer & 0xFF, pfun);
   pfun('>');
@@ -6451,23 +6571,18 @@ void prin1object (object *form, pfun_t pfun) {
 // Read functions
 
 int glibrary () {
-  if (LastChar) {
-    char temp = LastChar;
-    LastChar = 0;
-    return temp;
-  }
   char c = LispLibrary[GlobalStringIndex++];
   return (c != 0) ? c : -1; // -1?
 }
 
 void loadfromlibrary (object *env) {
   GlobalStringIndex = 0;
-  object *line = read(glibrary);
+  object *line = readmain(glibrary);
   while (line != NULL) {
     protect(line);
     eval(line, env);
     unprotect();
-    line = read(glibrary);
+    line = readmain(glibrary);
   }
 }
 
@@ -6562,11 +6677,6 @@ void processkey (char c) {
 }
 
 int gserial () {
-  if (LastChar) {
-    char temp = LastChar;
-    LastChar = 0;
-    return temp;
-  }
 #if defined(lineeditor)
   while (!KybdAvailable) {
     while (!Serial.available());
@@ -6736,6 +6846,24 @@ object *readrest (gfun_t gfun) {
   return head;
 }
 
+gfun_t GFun;
+
+int glast () {
+  if (LastChar) {
+    char temp = LastChar;
+    LastChar = 0;
+    return temp;
+  }
+  return GFun();
+}
+
+object *readmain (gfun_t gfun) {
+  GFun = gfun;
+  if (LastChar) { LastChar = 0; error2("read can only be used with one stream at a time"); }
+  LastChar = 0;
+  return read(glast);
+}
+
 object *read (gfun_t gfun) {
   object *item = nextitem(gfun);
   if (item == (object *)KET) error2("incomplete list");
@@ -6754,6 +6882,12 @@ void initenv () {
 
 void initgfx () {
   #if defined(gfxsupport)
+  #if defined(ARDUINO_TTGO_LoRa32_v21new)
+  Wire.begin();
+  tft.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  tft.fillScreen(COLOR_BLACK);
+  tft.display();
+  #else
   tft.init(135, 240);
   #if defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2_TFT)
   pinMode(TFT_I2C_POWER, OUTPUT);
@@ -6765,6 +6899,7 @@ void initgfx () {
   tft.fillScreen(ST77XX_BLACK);
   pinMode(TFT_BACKLITE, OUTPUT);
   digitalWrite(TFT_BACKLITE, HIGH);
+  #endif
   #endif
 }
 
@@ -6782,7 +6917,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.7d "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.8 "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
@@ -6800,7 +6935,7 @@ void repl (object *env) {
     }
     pserial('>'); pserial(' ');
     Context = NIL;
-    object *line = read(gserial);
+    object *line = readmain(gserial);
     // Break handling
     if (BreakLevel) {
       if (line == nil || line == bsymbol(COLONC)) {
