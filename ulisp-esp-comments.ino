@@ -1,5 +1,5 @@
-/* uLisp ESP Release 4.8 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 25th May 2025
+/* uLisp ESP Release 4.8b - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 26th May 2025
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -811,11 +811,11 @@ void gc (object *form, object *env) {
 
 /*
   movepointer - Corrects pointers to an object that has been moved from 'from' to 'to'.
-  Only need to scan addresses below 'from' as there are no accessible objects above that.
+  Only need to scan addresses below 'from' as we have already processed objects above that.
 */
 void movepointer (object *from, object *to) {
-   uintptr_t limit = ((uintptr_t)(from) - (uintptr_t)(Workspace))/sizeof(uintptr_t);
-   for (uintptr_t i=0; i<limit; i++) {
+  uintptr_t limit = ((uintptr_t)(from) - (uintptr_t)(Workspace))/sizeof(object);
+  for (uintptr_t i=0; i<=limit; i++) {
     object *obj = &Workspace[i];
     unsigned int type = (obj->type) & ~MARKBIT;
     if (marked(obj) && (type >= ARRAY || type==ZZERO || (type == SYMBOL && longsymbolp(obj)))) {
@@ -825,7 +825,7 @@ void movepointer (object *from, object *to) {
     }
   }
   // Fix strings and long symbols
-  for (uintptr_t i=0; i<limit; i++) {
+  for (uintptr_t i=0; i<=limit; i++) {
     object *obj = &Workspace[i];
     if (marked(obj)) {
       unsigned int type = (obj->type) & ~MARKBIT;
@@ -841,8 +841,8 @@ void movepointer (object *from, object *to) {
 }
 
 /*
-  compactimage - Marks all accessible objects. Moves the last marked object down to the first free space gap, correcting
-  pointers by calling movepointer(). Then repeats until there are no more gaps.
+  compactimage - Marks all accessible objects. Moves the last marked object down to the first free space gap,
+  correcting pointers by calling movepointer(). Then repeats until there are no more gaps.
 */
 uintptr_t compactimage (object **arg) {
   markobject(tee);
@@ -2583,35 +2583,37 @@ pfun_t pfun_spi (uint8_t address) {
 }
 
 pfun_t pfun_serial (uint8_t address) {
-  pfun_t pfun;
-  if (address == 0) pfun = pserial;
-  else if (address == 1) pfun = serial1write;
+  pfun_t pfun = pserial;
+  if (address == 1) pfun = serial1write;
   return pfun;
 }
 
-pfun_t pfun_string (uint8_t address) {  
+pfun_t pfun_string (uint8_t address) {
   (void) address;
   return pstr;
 }
 
 pfun_t pfun_sd (uint8_t address) {
-  pfun_t pfun;
+  (void) address;
+  pfun_t pfun = pserial;
   #if defined(sdcardsupport)
   pfun = (pfun_t)SDwrite;
   #endif
   return pfun;
 }
 
-pfun_t pfun_gfx (uint8_t address) {  
-  pfun_t pfun;
+pfun_t pfun_gfx (uint8_t address) {
+  (void) address;
+  pfun_t pfun = pserial;
   #if defined(gfxsupport)
   pfun = (pfun_t)gfxwrite;
   #endif
   return pfun;
 }
 
-pfun_t pfun_wifi (uint8_t address) {  
-  pfun_t pfun;
+pfun_t pfun_wifi (uint8_t address) {
+  (void) address; 
+  pfun_t pfun = pserial;
   #if defined(ULISP_WIFI)
   pfun = (pfun_t)WiFiwrite;
   #endif
@@ -2634,22 +2636,23 @@ gfun_t gfun_spi (uint8_t address) {
 }
 
 gfun_t gfun_serial (uint8_t address) {
-  gfun_t gfun;
-  if (address == 0) gfun = gserial;
-  else if (address == 1) gfun = serial1read;
+  gfun_t gfun = gserial;
+  if (address == 1) gfun = serial1read;
   return gfun;
 }
 
 gfun_t gfun_sd (uint8_t address) {
-  gfun_t gfun;
+  (void) address;
+  gfun_t gfun = gserial;
   #if defined(sdcardsupport)
   gfun = (gfun_t)SDread;
   #endif
   return gfun;
 }
 
-gfun_t gfun_wifi (uint8_t address) {  
-  gfun_t gfun;
+gfun_t gfun_wifi (uint8_t address) {
+  (void) address; 
+  gfun_t gfun = gserial;
   #if defined(ULISP_WIFI)
   gfun = (gfun_t)WiFiread;
   #endif
@@ -8417,7 +8420,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.8 "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.8b "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
