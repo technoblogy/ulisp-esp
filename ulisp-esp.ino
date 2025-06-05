@@ -1,5 +1,5 @@
-/* uLisp ESP Release 4.8b - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 26th May 2025
+/* uLisp ESP Release 4.8c - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 5th June 2025
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -121,7 +121,7 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
   #define LITTLEFS
   #include <LittleFS.h>
   #define SDCARD_SS_PIN 13
-  #define LED_BUILTIN 13
+  #define LED_BUILTIN 25
   SPIClass hspi(HSPI);
   #define CPU_LX6
   
@@ -2378,6 +2378,9 @@ void checkanalogread (int pin) {
   if (!((pin>=1 && pin<=20))) error("invalid pin", number(pin));
 #elif defined(ARDUINO_ESP32P4_DEV)
   if (!((pin>=16 && pin<=23) || (pin>=49 && pin<=54))) error("invalid pin", number(pin));
+#elif defined(ARDUINO_TTGO_LoRa32_v21new)
+  if (!(pin==0 || pin==2 || pin==4 || (pin>=12 && pin<=15) || (pin>=25 && pin<=26) || (pin>=34 && pin<=36) || pin==39)) \
+  error("invalid pin", number(pin));
 #endif
 }
 
@@ -6920,7 +6923,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.8b "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.8c "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
