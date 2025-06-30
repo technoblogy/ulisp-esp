@@ -1,5 +1,5 @@
-/* uLisp ESP Release 4.8c - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 5th June 2025
+/* uLisp ESP Release 4.8d - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 30th June 2025
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -185,12 +185,15 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 // ESP32-S3 boards ***************************************************************
 
 #elif defined(ARDUINO_ESP32S3_DEV)
-  #define WORKSPACESIZE (25000-SDSIZE)           /* Objects (8*bytes) */
+  #if defined(BOARD_HAS_PSRAM)
+  #define WORKSPACESIZE 250000                   /* Objects (8*bytes) */
+  #else
+  #define WORKSPACESIZE (24750-SDSIZE)           /* Objects (8*bytes) */
+  #endif
   #define MAX_STACK 6500
   #define LITTLEFS
   #include <LittleFS.h>
   #define SDCARD_SS_PIN 13
-  #define LED_BUILTIN 13
   #define CPU_LX7
 
 #elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_TFT)
@@ -228,6 +231,14 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 
 // ESP32-C6 boards ***************************************************************
 
+#elif defined(ARDUINO_ESP32C6_DEV)
+  #define WORKSPACESIZE (25000-SDSIZE)            /* Objects (8*bytes) */
+  #define MAX_STACK 8000
+  #define LITTLEFS
+  #include <LittleFS.h>
+  #define SDCARD_SS_PIN 13
+  #define CPU_RISC_V
+
 #elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32C6)
   #define WORKSPACESIZE (9216-SDSIZE)            /* Objects (8*bytes) */
   #define MAX_STACK 8000
@@ -240,11 +251,15 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
 // ESP32-P4 boards ***************************************************************
 
 #elif defined(ARDUINO_ESP32P4_DEV)
-  #define WORKSPACESIZE 27000                    /* Objects (8*bytes) */
+  #if defined(BOARD_HAS_PSRAM)
+  #define WORKSPACESIZE 2000000                  /* Objects (8*bytes) */
+  #else
+  #define WORKSPACESIZE (26900-SDSIZE)           /* Objects (8*bytes) */
+  #endif
   #define MAX_STACK 8000
   #define LITTLEFS
   #include <LittleFS.h> 
-  #define SDCARD_SS_PIN 26
+  #define SDCARD_SS_PIN 42
   #define LED_BUILTIN 13
   #define CPU_RISC_V
 
@@ -410,7 +425,7 @@ void* StackBottom;
 // Flags
 enum flag { PRINTREADABLY, RETURNFLAG, ESCAPE, EXITEDITOR, LIBRARYLOADED, NOESC, NOECHO, MUFFLEERRORS, BACKTRACE };
 typedef uint16_t flags_t;
-volatile flags_t Flags = 1<<PRINTREADABLY; // Set by default
+flags_t Flags = 1<<PRINTREADABLY; // Set by default
 
 // Forward references
 object *tee;
@@ -2154,8 +2169,8 @@ void I2Cstop (TwoWire *port, uint8_t read) {
 enum stream { SERIALSTREAM, I2CSTREAM, SPISTREAM, SDSTREAM, WIFISTREAM, STRINGSTREAM, GFXSTREAM };
 
 // Simplify board differences
-#if defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2)
-#define ULISP_HOWMANYI2C = 2
+#if defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2) || defined(ARDUINO_ESP32C6_DEV)
+#define ULISP_HOWMANYI2C 2
 #endif
 
 #define ULISP_WIFI
@@ -2376,8 +2391,10 @@ void checkanalogread (int pin) {
   if (!((pin>=0 && pin<=5))) error("invalid pin", number(pin));
 #elif defined(ARDUINO_ESP32S3_DEV)
   if (!((pin>=1 && pin<=20))) error("invalid pin", number(pin));
+#elif defined(ARDUINO_ESP32C6_DEV)
+  if (!((pin>=1 && pin<=20))) error("invalid pin", number(pin));
 #elif defined(ARDUINO_ESP32P4_DEV)
-  if (!((pin>=16 && pin<=23) || (pin>=49 && pin<=54))) error("invalid pin", number(pin));
+  if (!(pin>=0 && pin<=6)) error("invalid pin", number(pin));
 #elif defined(ARDUINO_TTGO_LoRa32_v21new)
   if (!(pin==0 || pin==2 || pin==4 || (pin>=12 && pin<=15) || (pin>=25 && pin<=26) || (pin>=34 && pin<=36) || pin==39)) \
   error("invalid pin", number(pin));
@@ -3993,6 +4010,7 @@ object *fn_search (object *args, object *env) {
 object *fn_readfromstring (object *args, object *env) {
   (void) env;
   object *arg = checkstring(first(args));
+  if (stringlength(arg) == 0) error2("zero length string");
   GlobalString = arg;
   GlobalStringIndex = 0;
   object *val = readmain(gstr);
@@ -6594,10 +6612,10 @@ void loadfromlibrary (object *env) {
 
 // For line editor
 const int TerminalWidth = 80;
-volatile int WritePtr = 0, ReadPtr = 0, LastWritePtr = 0;
+int WritePtr = 0, ReadPtr = 0, LastWritePtr = 0;
 const int KybdBufSize = 333; // 42*8 - 3
 char KybdBuf[KybdBufSize];
-volatile uint8_t KybdAvailable = 0;
+uint8_t KybdAvailable = 0;
 
 // Parenthesis highlighting
 void esc (int p, char c) {
@@ -6923,7 +6941,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.8c "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.8d "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
