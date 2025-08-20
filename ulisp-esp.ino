@@ -1,5 +1,5 @@
-/* uLisp ESP Release 4.8d - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 30th June 2025
+/* uLisp ESP Release 4.8e - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 20th August 2025
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -229,6 +229,20 @@ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
   #define LED_BUILTIN 13
   #define CPU_RISC_V
 
+// ESP32-C5 boards ***************************************************************
+
+#elif defined(ARDUINO_ESP32C5_DEV)
+  #if defined(BOARD_HAS_PSRAM)
+  #define WORKSPACESIZE 500000                    /* Objects (8*bytes) */
+  #else
+  #define WORKSPACESIZE (20000-SDSIZE)            /* Objects (8*bytes) */
+  #endif
+  #define MAX_STACK 8000
+  #define LITTLEFS
+  #include <LittleFS.h>
+  #define SDCARD_SS_PIN 13
+  #define CPU_RISC_V
+  
 // ESP32-C6 boards ***************************************************************
 
 #elif defined(ARDUINO_ESP32C6_DEV)
@@ -2395,6 +2409,8 @@ void checkanalogread (int pin) {
   if (!((pin>=1 && pin<=20))) error("invalid pin", number(pin));
 #elif defined(ARDUINO_ESP32P4_DEV)
   if (!(pin>=0 && pin<=6)) error("invalid pin", number(pin));
+#elif defined(ARDUINO_ESP32C5_DEV)
+  if (!(pin>=1 && pin<=6)) error("invalid pin", number(pin));
 #elif defined(ARDUINO_TTGO_LoRa32_v21new)
   if (!(pin==0 || pin==2 || pin==4 || (pin>=12 && pin<=15) || (pin>=25 && pin<=26) || (pin>=34 && pin<=36) || pin==39)) \
   error("invalid pin", number(pin));
@@ -6941,7 +6957,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.8d "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.8e "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
