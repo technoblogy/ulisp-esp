@@ -1,5 +1,5 @@
-/* uLisp ESP Release 4.8f - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 28th August 2025
+/* uLisp ESP Release 4.8g - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 28th November 2025
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -427,8 +427,9 @@ symbol_t Backtrace[BACKTRACESIZE];
 
 object *GlobalEnv;
 object *GCStack = NULL;
-object *GlobalString;
-object *GlobalStringTail;
+object *GlobalString = NULL;
+object *GlobalStringTail = NULL;
+object *GlobalStringStreamTail = NULL;
 int GlobalStringIndex = 0;
 uint8_t PrintCount = 0;
 uint8_t BreakLevel = 0;
@@ -562,6 +563,8 @@ const char indexrange[] = "index out of range";
 const char canttakecar[] = "can't take car";
 const char canttakecdr[] = "can't take cdr";
 const char unknownstreamtype[] = "unknown stream type";
+const char streamalreadyopen[] = "stream already in use";
+const char streamclosed[] = "invalid stream";
 
 // Set up workspace
 
@@ -1941,7 +1944,7 @@ uint8_t nthchar (object *string, int n) {
 }
 
 /*
-  gstr - reads a character from a string stream
+  gstr - reads a character from the global string
 */
 int gstr () {
   char c = nthchar(GlobalString, GlobalStringIndex++);
@@ -1950,10 +1953,17 @@ int gstr () {
 }
 
 /*
-  pstr - prints a character to a string stream
+  pstr - prints a character to the global string
 */
 void pstr (char c) {
   buildstring(c, &GlobalStringTail);
+}
+
+/*
+  pstrstream - prints a character to a string stream
+*/
+void pstrstream (char c) {
+  buildstring(c, &GlobalStringStreamTail);
 }
 
 /*
@@ -2619,7 +2629,8 @@ pfun_t pfun_serial (uint8_t address) {
 
 pfun_t pfun_string (uint8_t address) {
   (void) address;
-  return pstr;
+  if (GlobalStringStreamTail == NULL) error2(streamclosed);
+  return pstrstream;
 }
 
 pfun_t pfun_sd (uint8_t address) {
@@ -2936,9 +2947,9 @@ object *edit (object *fun) {
     char c = gserial();
     if (c == 'q') setflag(EXITEDITOR);
     else if (c == 'b') return fun;
-    else if (c == 'r') fun = read(gserial);
+    else if (c == 'r') fun = readmain(gserial);
     else if (c == '\n') { pfl(pserial); superprint(fun, 0, pserial); pln(pserial); }
-    else if (c == 'c') fun = cons(read(gserial), fun);
+    else if (c == 'c') fun = cons(readmain(gserial), fun);
     else if (atom(fun)) pserial('!');
     else if (c == 'd') fun = cons(car(fun), edit(cdr(fun)));
     else if (c == 'a') fun = cons(edit(car(fun)), cdr(fun));
@@ -3366,14 +3377,17 @@ object *sp_time (object *args, object *env) {
 */
 object *sp_withoutputtostring (object *args, object *env) {
   object *params = checkarguments(args, 1, 1);
+  if (GlobalStringStreamTail != NULL) error2(streamalreadyopen);
   object *var = first(params);
   object *pair = cons(var, stream(STRINGSTREAM, 0));
   push(pair,env);
-  object *string = startstring();
+  object *string = newstring();
+  GlobalStringStreamTail = string;
   protect(string);
   object *forms = cdr(args);
   eval(tf_progn(forms,env), env);
   unprotect();
+  GlobalStringStreamTail = NULL;
   return string;
 }
 
@@ -5297,6 +5311,7 @@ object *fn_terpri (object *args, object *env) {
 object *fn_readbyte (object *args, object *env) {
   (void) env;
   gfun_t gfun = gstreamfun(args);
+  if (gfun == gserial) gserial_flush();
   int c = gfun();
   return (c == -1) ? nil : number(c);
 }
@@ -5309,6 +5324,7 @@ object *fn_readbyte (object *args, object *env) {
 object *fn_readline (object *args, object *env) {
   (void) env;
   gfun_t gfun = gstreamfun(args);
+  if (gfun == gserial) gserial_flush();
   return readstring('\n', false, gfun);
 }
 
@@ -5886,8 +5902,8 @@ object *sp_unwindprotect (object *args, object *env) {
   jmp_buf *previous_handler = handler;
   handler = &dynamic_handler;
   object *protected_form = first(args);
-  object *result;
-
+  object *volatile result;
+  // volatile to solve: argument 'result' might be clobbered by 'longjmp' or 'vfork' [-Wclobbered]
   bool signaled = false;
   if (!setjmp(dynamic_handler)) {
     result = eval(protected_form, env);
@@ -5914,6 +5930,8 @@ object *sp_unwindprotect (object *args, object *env) {
   Evaluates forms ignoring errors.
 */
 object *sp_ignoreerrors (object *args, object *env) {
+  object *volatile args1 = args;
+  // volatile to solve: argument 'args' might be clobbered by 'longjmp' or 'vfork' [-Wclobbered]
   object *current_GCStack = GCStack;
   jmp_buf dynamic_handler;
   jmp_buf *previous_handler = handler;
@@ -5922,12 +5940,13 @@ object *sp_ignoreerrors (object *args, object *env) {
 
   bool muffled = tstflag(MUFFLEERRORS);
   setflag(MUFFLEERRORS);
-  bool signaled = false;
+  volatile bool signaled = false;
+  // volatile to solve: argument 'signaled' might be clobbered by 'longjmp' or 'vfork' [-Wclobbered]
   if (!setjmp(dynamic_handler)) {
-    while (args != NULL) {
-      result = eval(car(args), env);
+    while (args1 != NULL) {
+      result = eval(car(args1), env);
       if (tstflag(RETURNFLAG)) break;
-      args = cdr(args);
+      args1 = cdr(args1);
     }
   } else {
     GCStack = current_GCStack;
@@ -7765,7 +7784,7 @@ object *eval (object *form, object *env) {
     Context = bname;
     checkminmax(bname, nargs);
     intptr_t call = lookupfn(bname);
-    if (call == NULL) error(illegalfn, function);
+    if (call == 0) error(illegalfn, function);
     object *result = ((fn_ptr_type)call)(args, env);
     unprotect();
     return result;
@@ -8217,6 +8236,14 @@ void processkey (char c) {
   return;
 }
 
+void gserial_flush () {
+  #if defined (serialmonitor)
+  Serial.flush();
+  #endif
+  KybdAvailable = 0;
+  WritePtr = 0;
+}
+
 /*
   gserial - gets a character from the serial port
 */
@@ -8412,7 +8439,6 @@ int glast () {
 */
 object *readmain (gfun_t gfun) {
   GFun = gfun;
-  if (LastChar) { LastChar = 0; error2("read can only be used with one stream at a time"); }
   LastChar = 0;
   return read(glast);
 }
@@ -8479,7 +8505,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.8f "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.8g "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
@@ -8546,6 +8572,7 @@ void ulisperror () {
   // Come here after error
   delay(100); while (Serial.available()) Serial.read();
   clrflag(NOESC); BreakLevel = 0; TraceStart = 0; TraceTop = 0;
+  GlobalStringStreamTail = NULL;
   for (int i=0; i<TRACEMAX; i++) TraceDepth[i] = 0;
   #if defined(sdcardsupport)
   SDpfile.close(); SDgfile.close();
