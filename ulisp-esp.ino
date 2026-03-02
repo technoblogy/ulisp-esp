@@ -1,5 +1,5 @@
-/* uLisp ESP Release 4.9 - www.ulisp.com
-   David Johnson-Davies - www.technoblogy.com - 9th February 2026
+/* uLisp ESP Release 4.9a - www.ulisp.com
+   David Johnson-Davies - www.technoblogy.com - 2nd March 2026
 
    Licensed under the MIT license: https://opensource.org/licenses/MIT
 */
@@ -33,6 +33,12 @@ const char LispLibrary[] = "";
 #define COLOR_WHITE 0xFFFF
 #define COLOR_BLACK 0
 #define VT100_HIGHLIGHT "\e[7m"
+#ifndef LED_BUILTIN
+#define LED_BUILTIN 13
+#endif
+#ifndef PIN_NEOPIXEL
+#define PIN_NEOPIXEL 0
+#endif
 
 // Platform specific settings
 
@@ -59,7 +65,6 @@ const char LispLibrary[] = "";
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
-  #define LED_BUILTIN 13
   #define CPU_LX6
   #if defined(gfxsupport)
     #define TFT_ST7789
@@ -71,7 +76,7 @@ const char LispLibrary[] = "";
     #define TFT_BACKLITE 4
   #endif
 
-#elif defined(ARDUINO_FEATHER_ESP32)
+#elif defined(ARDUINO_FEATHER_ESP32)             /* Adafruit's first ESP32 Feather */
   #define WORKSPACESIZE (9500-SDSIZE)            /* Objects (8*bytes) */
   #define MAX_STACK 7000
   #define LITTLEFS
@@ -103,7 +108,6 @@ const char LispLibrary[] = "";
   #define LITTLEFS
   #include <LittleFS.h>
   #define SDCARD_SS_PIN 13
-  #define LED_BUILTIN 13
   #define CPU_LX6
 
 #elif defined(ARDUINO_TTGO_LoRa32_v21new)
@@ -112,7 +116,6 @@ const char LispLibrary[] = "";
   #define LITTLEFS
   #include <LittleFS.h>
   #define SDCARD_SS_PIN 13
-  #define LED_BUILTIN 25
   SPIClass hspi(HSPI);
   #define CPU_LX6
   #if defined(gfxsupport)
@@ -132,7 +135,7 @@ const char LispLibrary[] = "";
   #if defined(BOARD_HAS_PSRAM)
   #define WORKSPACESIZE 250000                   /* Objects (8*bytes) */
   #else
-  #define WORKSPACESIZE (6500-SDSIZE)            /* Objects (8*bytes) */
+  #define WORKSPACESIZE (4150-SDSIZE)            /* Objects (8*bytes) */
   #endif
   #define MAX_STACK 7000
   #define LITTLEFS
@@ -149,46 +152,30 @@ const char LispLibrary[] = "";
     Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
   #endif
 
-#elif defined(ARDUINO_FEATHERS2)                 /* UM FeatherS2 */
-  #if defined(BOARD_HAS_PSRAM)
-  #define WORKSPACESIZE 1000000                  /* Objects (8*bytes) */
-  #else
-  #define WORKSPACESIZE (8160-SDSIZE)            /* Objects (8*bytes) */
-  #endif
-  #define MAX_STACK 7000
-  #define LITTLEFS
-  #include <LittleFS.h>
-  #define analogWrite(x,y) dacWrite((x),(y))
-  #define SDCARD_SS_PIN 13
-  #define LED_BUILTIN 13
-  #define CPU_LX7
-
 #elif defined(ARDUINO_ESP32S2_DEV)
   #if defined(BOARD_HAS_PSRAM)
-  #define WORKSPACESIZE 260000                   /* Objects (8*bytes) */
+  #define WORKSPACESIZE 250000                   /* Objects (8*bytes) */
   #else
-  #define WORKSPACESIZE (8160-SDSIZE)            /* Objects (8*bytes) */
+  #define WORKSPACESIZE (7000-SDSIZE)            /* Objects (8*bytes) */
   #endif
   #define MAX_STACK 7000
   #define LITTLEFS
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
-  #define LED_BUILTIN 13
   #define CPU_LX7
 
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2)
   #if defined(BOARD_HAS_PSRAM)
-  #define WORKSPACESIZE 260000                   /* Objects (8*bytes) */
+  #define WORKSPACESIZE 250000                   /* Objects (8*bytes) */
   #else
-  #define WORKSPACESIZE (7232-SDSIZE)            /* Objects (8*bytes) */
+  #define WORKSPACESIZE (4150-SDSIZE)            /* Objects (8*bytes) */
   #endif
   #define MAX_STACK 7000
   #define LITTLEFS
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
-  #define LED_BUILTIN 13
   #define CPU_LX7
   
 // ESP32-S3 boards ***************************************************************
@@ -197,7 +184,7 @@ const char LispLibrary[] = "";
   #if defined(BOARD_HAS_PSRAM)
   #define WORKSPACESIZE 250000                   /* Objects (8*bytes) */
   #else
-  #define WORKSPACESIZE (24750-SDSIZE)           /* Objects (8*bytes) */
+  #define WORKSPACESIZE (21900-SDSIZE)           /* Objects (8*bytes) */
   #endif
   #define MAX_STACK 6500
   #define LITTLEFS
@@ -205,23 +192,36 @@ const char LispLibrary[] = "";
   #define SDCARD_SS_PIN 13
   #define CPU_LX7
 
-#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_TFT)
+#elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32S3_N4R2) || defined(ARDUINO_ADAFRUIT_QTPY_ESP32S3_NOPSRAM)
   #if defined(BOARD_HAS_PSRAM)
   #define WORKSPACESIZE 250000                   /* Objects (8*bytes) */
   #else
-  #define WORKSPACESIZE (22000-SDSIZE)           /* Objects (8*bytes) */
+  #define WORKSPACESIZE (21900-SDSIZE)           /* Objects (8*bytes) */
   #endif
   #define MAX_STACK 7000
   #define LITTLEFS
   #include <LittleFS.h>
   #define SDCARD_SS_PIN 13
-  #define LED_BUILTIN 13
   #define CPU_LX7
-  #if defined(gfxsupport)
+
+#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM) \
+  || defined(ARDUINO_ADAFRUIT_QTPY_ESP32S3_N4R2) || defined(ARDUINO_ADAFRUIT_QTPY_ESP32S3_NOPSRAM) \
+  || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_TFT)
+  #if defined(BOARD_HAS_PSRAM)
+  #define WORKSPACESIZE 250000                   /* Objects (8*bytes) */
+  #else
+  #define WORKSPACESIZE (21900-SDSIZE)           /* Objects (8*bytes) */
+  #endif
+  #define MAX_STACK 7000
+  #define LITTLEFS
+  #include <LittleFS.h>
+  #define SDCARD_SS_PIN 13
+  #define CPU_LX7
+  #if defined(gfxsupport)  // Adafruit ESP32 TFT Feathers
     #define TFT_ST7789
     #include <Adafruit_GFX.h>
     #include <Adafruit_ST7789.h>
-    #define TFT_MOSI MOSI // Adafruit ESP32 Feathers
+    #define TFT_MOSI MOSI
     #define TFT_SCK SCK
     Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, MOSI, SCK, TFT_RST);
   #endif
@@ -234,16 +234,14 @@ const char LispLibrary[] = "";
   #define LITTLEFS
   #include <LittleFS.h>
   #define SDCARD_SS_PIN 13
-  #define LED_BUILTIN 13
   #define CPU_RISC_V
   
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32C3)
   #define WORKSPACESIZE (9216-SDSIZE)            /* Objects (8*bytes) */
-  #define MAX_STACK 8000
+  #define MAX_STACK 7500
   #define LITTLEFS
   #include <LittleFS.h>
   #define SDCARD_SS_PIN 13
-  #define LED_BUILTIN 13
   #define CPU_RISC_V
 
 // ESP32-C5 boards ***************************************************************
@@ -263,7 +261,7 @@ const char LispLibrary[] = "";
 // ESP32-C6 boards ***************************************************************
 
 #elif defined(ARDUINO_ESP32C6_DEV)
-  #define WORKSPACESIZE (25000-SDSIZE)            /* Objects (8*bytes) */
+  #define WORKSPACESIZE (24900-SDSIZE)            /* Objects (8*bytes) */
   #define MAX_STACK 8000
   #define LITTLEFS
   #include <LittleFS.h>
@@ -271,12 +269,11 @@ const char LispLibrary[] = "";
   #define CPU_RISC_V
 
 #elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32C6)
-  #define WORKSPACESIZE (9216-SDSIZE)            /* Objects (8*bytes) */
+  #define WORKSPACESIZE (24900-SDSIZE)            /* Objects (8*bytes) */
   #define MAX_STACK 8000
   #define LITTLEFS
   #include <LittleFS.h>
   #define SDCARD_SS_PIN 13
-  #define LED_BUILTIN 13
   #define CPU_RISC_V
 
 // ESP32-P4 boards ***************************************************************
@@ -284,27 +281,27 @@ const char LispLibrary[] = "";
 #elif defined(ARDUINO_ESP32P4_DEV)
   #if defined(BOARD_HAS_PSRAM)
   #define WORKSPACESIZE 2000000                  /* Objects (8*bytes) */
+  #elif ARDUINO_USB_CDC_ON_BOOT                  /* Uses RAM */
+  #define WORKSPACESIZE (22500-SDSIZE)           /* Objects (8*bytes) */
   #else
-  #define WORKSPACESIZE (26500-SDSIZE)           /* Objects (8*bytes) */
+  #define WORKSPACESIZE (26400-SDSIZE)           /* Objects (8*bytes) */
   #endif
   #define MAX_STACK 8000
   #define LITTLEFS
-  #include <LittleFS.h> 
+  #include <LittleFS.h>
   #define SDCARD_SS_PIN 42
-  #define LED_BUILTIN 13
   #define CPU_RISC_V
 
 #elif defined(ARDUINO_M5STACK_TAB5)
   #if defined(BOARD_HAS_PSRAM)
   #define WORKSPACESIZE 2000000                  /* Objects (8*bytes) */
   #else
-  #define WORKSPACESIZE (26500-SDSIZE)           /* Objects (8*bytes) */
+  #define WORKSPACESIZE (26400-SDSIZE)           /* Objects (8*bytes) */
   #endif
   #define MAX_STACK 8000
   #define LITTLEFS
   #include <LittleFS.h> 
   #define SDCARD_SS_PIN 42
-  #define LED_BUILTIN 13
   #define CPU_RISC_V
   #if defined(gfxsupport)
     #if !defined(BOARD_HAS_PSRAM)
@@ -325,7 +322,6 @@ const char LispLibrary[] = "";
   #include <LittleFS.h>
   #define analogWrite(x,y) dacWrite((x),(y))
   #define SDCARD_SS_PIN 13
-  #define LED_BUILTIN 13
   #define CPU_LX6
 
 #else
@@ -864,6 +860,7 @@ char *MakeFilename (object *arg, char *buffer) {
 #if defined(sdcardsupport)
 
 void SDBegin () {
+  SD.end(); // In case card swapped
   #if defined(ARDUINO_TTGO_LoRa32_v21new)
   hspi.begin(14, 2, 15, SDCARD_SS_PIN);
   SD.begin(SDCARD_SS_PIN, hspi);
@@ -1831,32 +1828,16 @@ object *iptostring (uint32_t ip) {
   return obj;
 }
 
-uint32_t ipstring (object *form) {
-  form = cdr(checkstring(form));
-  int p = 0;
-  union { uint32_t ipaddress; uint8_t ipbytes[4]; } ;
-  ipaddress = 0;
-  while (form != NULL) {
-    int chars = form->integer;
-    for (int i=(sizeof(int)-1)*8; i>=0; i=i-8) {
-      char ch = chars>>i & 0xFF;
-      if (ch) {
-        if (ch == '.') { p++; if (p > 3) error2("illegal IP address"); }
-        else ipbytes[p] = (ipbytes[p] * 10) + ch - '0';
-      }
-    }
-    form = car(form);
-  }
-  return ipaddress;
-}
-
 object *value (symbol_t n, object *env) {
-  while (env != NULL) {
+  int level = 0;
+  while (env != NULL && level < 2) {
     object *pair = car(env);
     #if !defined(BOARD_HAS_PSRAM)
-    if (pair != NULL && car(pair)->name == n) return pair;
+    if (pair == NULL) level++;
+    else if (car(pair)->name == n) return pair;
     #else
-    if (pair != NULL && eqsymbol(car(pair)->name, n)) return pair;
+    if (pair == NULL) level++;
+    else if (eqsymbol(car(pair)->name, n)) return pair;
     #endif
     env = cdr(env);
   }
@@ -1927,7 +1908,9 @@ object *closure (int tc, symbol_t name, object *function, object *args, object *
         errorsym(name, "illegal function parameter", var);
       } else if (isbuiltin(var, AMPREST)) {
         params = cdr(params);
+        if (params == NULL) errorsym2(name, "missing &rest parameter");
         var = first(params);
+        if (!symbolp(var)) errorsym(name, "illegal &rest parameter", var);
         value = args;
         args = NULL;
       } else {
@@ -2229,7 +2212,8 @@ void I2Cstop (TwoWire *port, uint8_t read) {
 enum stream { SERIALSTREAM, I2CSTREAM, SPISTREAM, SDSTREAM, WIFISTREAM, STRINGSTREAM, GFXSTREAM };
 
 // Simplify board differences
-#if defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2) || defined(ARDUINO_ESP32C6_DEV)
+#if defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2) || defined(ARDUINO_ESP32C6_DEV) || defined(ARDUINO_ADAFRUIT_QTPY_ESP32S3_N4R2) \
+  || defined(ARDUINO_ADAFRUIT_QTPY_ESP32S3_NOPSRAM)
 #define ULISP_HOWMANYI2C 2
 #endif
 
@@ -2433,25 +2417,26 @@ gfun_t gstreamfun (object *args) {
 // Check pins
 
 void checkanalogread (int pin) {
-#if defined(ESP32) || defined(ARDUINO_ESP32_DEV)
-  if (!(pin==0 || pin==2 || pin==4 || (pin>=12 && pin<=15) || (pin>=25 && pin<=27) || (pin>=32 && pin<=36) || pin==39))
-    error("invalid pin", number(pin));
-#elif defined(ARDUINO_FEATHER_ESP32) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32_V2)
+#if defined(ARDUINO_FEATHER_ESP32) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32_V2)
   if (!(pin==4 || (pin>=12 && pin<=15) || (pin>=25 && pin<=27) || (pin>=32 && pin<=36) || pin==39)) error("invalid pin", number(pin));
 #elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2_TFT)
   if (!(pin==8 || (pin>=14 && pin<=18))) error("invalid pin", number(pin));
+#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S3_NOPSRAM)
+  if (!((pin>=3 && pin<=6) || (pin>=8 && pin<=18))) error("invalid pin", number(pin));
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32_PICO)
   if (!(pin==4 || pin==7 || (pin>=12 && pin<=15) || (pin>=25 && pin<=27) || (pin>=32 && pin<=33))) error("invalid pin", number(pin));
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2)
   if (!((pin>=5 && pin<=9) || (pin>=16 && pin<=18))) error("invalid pin", number(pin));
 #elif defined(ARDUINO_ADAFRUIT_QTPY_ESP32C3)
   if (!((pin>=0 && pin<=1) || (pin>=3 && pin<=5))) error("invalid pin", number(pin));
-#elif defined(ARDUINO_FEATHERS2) || defined(ARDUINO_ESP32S2_DEV)
+#elif defined(ARDUINO_ESP32S2_DEV)
   if (!((pin>=1 && pin<=20))) error("invalid pin", number(pin));
 #elif defined(ARDUINO_ESP32C3_DEV)
   if (!((pin>=0 && pin<=5))) error("invalid pin", number(pin));
 #elif defined(ARDUINO_ESP32S3_DEV)
   if (!((pin>=1 && pin<=20))) error("invalid pin", number(pin));
+#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32C6)
+  if (!((pin>=0 && pin<=6))) error("invalid pin", number(pin));
 #elif defined(ARDUINO_ESP32C6_DEV)
   if (!((pin>=1 && pin<=20))) error("invalid pin", number(pin));
 #elif defined(ARDUINO_ESP32P4_DEV) || defined(ARDUINO_M5STACK_TAB5)
@@ -2459,19 +2444,13 @@ void checkanalogread (int pin) {
 #elif defined(ARDUINO_TTGO_LoRa32_v21new)
   if (!(pin==0 || pin==2 || pin==4 || (pin>=12 && pin<=15) || (pin>=25 && pin<=26) || (pin>=34 && pin<=36) || pin==39)) \
   error("invalid pin", number(pin));
+#elif defined(ESP32) || defined(ARDUINO_ESP32_DEV)
+  if (!(pin==0 || pin==2 || pin==4 || (pin>=12 && pin<=15) || (pin>=25 && pin<=27) || (pin>=32 && pin<=36) || pin==39)) error("invalid pin", number(pin));
 #endif
 }
 
 void checkanalogwrite (int pin) {
-#if defined(ESP32) || defined(ARDUINO_FEATHER_ESP32) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32_V2) || defined(ARDUINO_ESP32_DEV) \
-  || defined(ARDUINO_ADAFRUIT_QTPY_ESP32_PICO)
-  if (!(pin>=25 && pin<=26)) error("invalid pin", number(pin));
-#elif defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2) || defined(ARDUINO_ADAFRUIT_FEATHER_ESP32S2_TFT) || defined(ARDUINO_ADAFRUIT_QTPY_ESP32S2) \
-  || defined(ARDUINO_FEATHERS2) || defined(ARDUINO_ESP32S2_DEV)
-  if (!(pin>=17 && pin<=18)) error("invalid pin", number(pin));
-#else
-  error2(ANALOGWRITE, "not supported");
-#endif
+  // Recent ESP32 cores support analogwrite PWM on any pin
 }
 
 // Note
@@ -2501,8 +2480,13 @@ void nonote (int pin) {
 
 void initsleep () { }
 
+void gosleep () {
+  esp_light_sleep_start();
+}
+
 void doze (int secs) {
-  delay(1000 * secs);
+  esp_sleep_enable_timer_wakeup(secs * 1000000UL);
+  esp_light_sleep_start();
 }
 
 // Prettyprint
@@ -2863,7 +2847,9 @@ object *sp_dostar (object *args, object *env) {
 object *sp_bind (object *args, object *env) {
   object *params = cons(NULL, cons(first(args), cddr(args)));
   protect(params);
-  object *result = closure(0, sym(BIND), params, eval(second(args), env), &env);
+  object *arg = eval(second(args), env);
+  if (!listp(arg)) error(notalist, arg);
+  object *result = closure(0, sym(BIND), params, arg, &env);
   unprotect();
   return eval(result, env);
 }
@@ -4456,6 +4442,21 @@ object *fn_analogwrite (object *args, object *env) {
   return value;
 }
 
+object *fn_rgbledwrite (object *args, object *env) {
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
+  (void) env;
+  int pin;
+  object *arg = first(args);
+  if (keywordp(arg)) pin = checkkeyword(arg);
+  else pin = checkinteger(arg);
+  args = cdr(args);
+  rgbLedWrite(pin, checkinteger(first(args)), checkinteger(second(args)), checkinteger(third(args)));
+#else
+  (void) args, (void) env;
+#endif
+  return nil;
+}
+
 object *fn_delay (object *args, object *env) {
   (void) env;
   object *arg1 = first(args);
@@ -4473,6 +4474,7 @@ object *fn_millis (object *args, object *env) {
 
 object *fn_sleep (object *args, object *env) {
   (void) env;
+  if (args == NULL || first(args) == NULL) { gosleep(); return nil; }
   object *arg1 = first(args);
   doze(checkinteger(arg1));
   return arg1;
@@ -4840,7 +4842,8 @@ object *fn_available (object *args, object *env) {
 
 object *fn_wifiserver (object *args, object *env) {
   (void) args, (void) env;
-  server.begin();
+  static bool serverrunning = false;
+  if (!serverrunning) { server.begin(); serverrunning = true; }
   return nil;
 }
 
@@ -5230,1102 +5233,848 @@ object *fn_display (object *args, object *env) {
   return nil;
 }
 
-// Built-in symbol names
-const char string0[] = "nil";
-const char string1[] = "t";
-const char string2[] = "nothing";
-const char string3[] = "&optional";
-const char string4[] = "*features*";
-const char string5[] = ":initial-element";
-const char string6[] = ":element-type";
-const char string7[] = ":test";
-const char string8[] = ":a";
-const char string9[] = ":b";
-const char string10[] = ":c";
-const char string11[] = "bit";
-const char string12[] = "&rest";
-const char string13[] = "lambda";
-const char string14[] = "let";
-const char string15[] = "let*";
-const char string16[] = "closure";
-const char string17[] = "*pc*";
-const char string18[] = "quote";
-const char string19[] = "defun";
-const char string20[] = "defvar";
-const char string21[] = "bind";
-const char string22[] = "eq";
-const char string23[] = "car";
-const char string24[] = "first";
-const char string25[] = "cdr";
-const char string26[] = "rest";
-const char string27[] = "nth";
-const char string28[] = "aref";
-const char string29[] = "char";
-const char string30[] = "string";
-const char string31[] = "pinmode";
-const char string32[] = "digitalwrite";
-const char string33[] = "analogread";
-const char string34[] = "register";
-const char string35[] = "format";
-const char string36[] = "or";
-const char string37[] = "setq";
-const char string38[] = "loop";
-const char string39[] = "push";
-const char string40[] = "pop";
-const char string41[] = "incf";
-const char string42[] = "decf";
-const char string43[] = "setf";
-const char string44[] = "dolist";
-const char string45[] = "dotimes";
-const char string46[] = "do";
-const char string47[] = "do*";
-const char string48[] = "trace";
-const char string49[] = "untrace";
-const char string50[] = "for-millis";
-const char string51[] = "time";
-const char string52[] = "with-output-to-string";
-const char string53[] = "with-serial";
-const char string54[] = "with-i2c";
-const char string55[] = "with-spi";
-const char string56[] = "with-sd-card";
-const char string57[] = "progn";
-const char string58[] = "if";
-const char string59[] = "cond";
-const char string60[] = "when";
-const char string61[] = "unless";
-const char string62[] = "case";
-const char string63[] = "and";
-const char string64[] = "not";
-const char string65[] = "null";
-const char string66[] = "cons";
-const char string67[] = "atom";
-const char string68[] = "listp";
-const char string69[] = "consp";
-const char string70[] = "symbolp";
-const char string71[] = "arrayp";
-const char string72[] = "boundp";
-const char string73[] = "keywordp";
-const char string74[] = "set";
-const char string75[] = "streamp";
-const char string76[] = "equal";
-const char string77[] = "caar";
-const char string78[] = "cadr";
-const char string79[] = "second";
-const char string80[] = "cdar";
-const char string81[] = "cddr";
-const char string82[] = "caaar";
-const char string83[] = "caadr";
-const char string84[] = "cadar";
-const char string85[] = "caddr";
-const char string86[] = "third";
-const char string87[] = "cdaar";
-const char string88[] = "cdadr";
-const char string89[] = "cddar";
-const char string90[] = "cdddr";
-const char string91[] = "length";
-const char string92[] = "array-dimensions";
-const char string93[] = "list";
-const char string94[] = "copy-list";
-const char string95[] = "make-array";
-const char string96[] = "reverse";
-const char string97[] = "assoc";
-const char string98[] = "member";
-const char string99[] = "apply";
-const char string100[] = "funcall";
-const char string101[] = "append";
-const char string102[] = "mapc";
-const char string103[] = "mapl";
-const char string104[] = "mapcar";
-const char string105[] = "mapcan";
-const char string106[] = "maplist";
-const char string107[] = "mapcon";
-const char string108[] = "+";
-const char string109[] = "-";
-const char string110[] = "*";
-const char string111[] = "/";
-const char string112[] = "mod";
-const char string113[] = "rem";
-const char string114[] = "1+";
-const char string115[] = "1-";
-const char string116[] = "abs";
-const char string117[] = "random";
-const char string118[] = "max";
-const char string119[] = "min";
-const char string120[] = "/=";
-const char string121[] = "=";
-const char string122[] = "<";
-const char string123[] = "<=";
-const char string124[] = ">";
-const char string125[] = ">=";
-const char string126[] = "plusp";
-const char string127[] = "minusp";
-const char string128[] = "zerop";
-const char string129[] = "oddp";
-const char string130[] = "evenp";
-const char string131[] = "integerp";
-const char string132[] = "numberp";
-const char string133[] = "float";
-const char string134[] = "floatp";
-const char string135[] = "sin";
-const char string136[] = "cos";
-const char string137[] = "tan";
-const char string138[] = "asin";
-const char string139[] = "acos";
-const char string140[] = "atan";
-const char string141[] = "sinh";
-const char string142[] = "cosh";
-const char string143[] = "tanh";
-const char string144[] = "exp";
-const char string145[] = "sqrt";
-const char string146[] = "log";
-const char string147[] = "expt";
-const char string148[] = "ceiling";
-const char string149[] = "floor";
-const char string150[] = "truncate";
-const char string151[] = "round";
-const char string152[] = "char-code";
-const char string153[] = "code-char";
-const char string154[] = "characterp";
-const char string155[] = "stringp";
-const char string156[] = "string=";
-const char string157[] = "string<";
-const char string158[] = "string>";
-const char string159[] = "string/=";
-const char string160[] = "string<=";
-const char string161[] = "string>=";
-const char string162[] = "sort";
-const char string163[] = "concatenate";
-const char string164[] = "subseq";
-const char string165[] = "search";
-const char string166[] = "read-from-string";
-const char string167[] = "princ-to-string";
-const char string168[] = "prin1-to-string";
-const char string169[] = "logand";
-const char string170[] = "logior";
-const char string171[] = "logxor";
-const char string172[] = "lognot";
-const char string173[] = "ash";
-const char string174[] = "logbitp";
-const char string175[] = "eval";
-const char string176[] = "return";
-const char string177[] = "globals";
-const char string178[] = "locals";
-const char string179[] = "makunbound";
-const char string180[] = "break";
-const char string181[] = "read";
-const char string182[] = "prin1";
-const char string183[] = "print";
-const char string184[] = "princ";
-const char string185[] = "terpri";
-const char string186[] = "read-byte";
-const char string187[] = "read-line";
-const char string188[] = "write-byte";
-const char string189[] = "write-string";
-const char string190[] = "write-line";
-const char string191[] = "restart-i2c";
-const char string192[] = "gc";
-const char string193[] = "room";
-const char string194[] = "backtrace";
-const char string195[] = "save-image";
-const char string196[] = "load-image";
-const char string197[] = "cls";
-const char string198[] = "digitalread";
-const char string199[] = "analogreadresolution";
-const char string200[] = "analogwrite";
-const char string201[] = "delay";
-const char string202[] = "millis";
-const char string203[] = "sleep";
-const char string204[] = "note";
-const char string205[] = "edit";
-const char string206[] = "pprint";
-const char string207[] = "pprintall";
-const char string208[] = "require";
-const char string209[] = "list-library";
-const char string210[] = "?";
-const char string211[] = "documentation";
-const char string212[] = "apropos";
-const char string213[] = "apropos-list";
-const char string214[] = "unwind-protect";
-const char string215[] = "ignore-errors";
-const char string216[] = "error";
-const char string217[] = "directory";
-const char string218[] = "with-client";
-const char string219[] = "available";
-const char string220[] = "wifi-server";
-const char string221[] = "wifi-softap";
-const char string222[] = "connected";
-const char string223[] = "wifi-localip";
-const char string224[] = "wifi-connect";
-const char string225[] = "get-time";
-const char string226[] = "with-gfx";
-const char string227[] = "draw-pixel";
-const char string228[] = "draw-line";
-const char string229[] = "draw-rect";
-const char string230[] = "fill-rect";
-const char string231[] = "draw-circle";
-const char string232[] = "fill-circle";
-const char string233[] = "draw-round-rect";
-const char string234[] = "fill-round-rect";
-const char string235[] = "draw-triangle";
-const char string236[] = "fill-triangle";
-const char string237[] = "draw-char";
-const char string238[] = "set-cursor";
-const char string239[] = "set-text-color";
-const char string240[] = "set-text-size";
-const char string241[] = "set-text-wrap";
-const char string242[] = "fill-screen";
-const char string243[] = "set-rotation";
-const char string244[] = "invert-display";
-const char string245[] = "read-pixel";
-const char string246[] = "touchscreen";
-const char string247[] = "display-size";
-const char string248[] = "display";
-const char string249[] = ":led-builtin";
-const char string250[] = ":high";
-const char string251[] = ":low";
-const char string252[] = ":input";
-const char string253[] = ":input-pullup";
-const char string254[] = ":input-pulldown";
-const char string255[] = ":output";
-
 // Documentation strings
-const char doc0[] = "nil\n"
+const char doc_nil[] = "nil\n"
 "A symbol equivalent to the empty list (). Also represents false.";
-const char doc1[] = "t\n"
+const char doc_tee[] = "t\n"
 "A symbol representing true.";
-const char doc2[] = "nothing\n"
+const char doc_nothing[] = "nothing\n"
 "A symbol with no value.\n"
 "It is useful if you want to suppress printing the result of evaluating a function.";
-const char doc3[] = "&optional\n"
+const char doc_optional[] = "&optional\n"
 "Can be followed by one or more optional parameters in a lambda or defun parameter list.";
-const char doc4[] = "*features*\n"
+const char doc_features[] = "*features*\n"
 "Returns a list of keywords representing features supported by this platform.";
-const char doc12[] = "&rest\n"
+const char doc_amprest[] = "&rest\n"
 "Can be followed by a parameter in a lambda or defun parameter list,\n"
 "and is assigned a list of the corresponding arguments.";
-const char doc13[] = "(lambda (parameter*) form*)\n"
+const char doc_lambda[] = "(lambda (parameter*) form*)\n"
 "Creates an unnamed function with parameters. The body is evaluated with the parameters as local variables\n"
 "whose initial values are defined by the values of the forms after the lambda form.";
-const char doc14[] = "(let ((var value) ... ) forms*)\n"
+const char doc_let[] = "(let ((var value) ... ) forms*)\n"
 "Declares local variables with values, and evaluates the forms with those local variables.";
-const char doc15[] = "(let* ((var value) ... ) forms*)\n"
+const char doc_letstar[] = "(let* ((var value) ... ) forms*)\n"
 "Declares local variables with values, and evaluates the forms with those local variables.\n"
 "Each declaration can refer to local variables that have been defined earlier in the let*.";
-const char doc19[] = "(defun name (parameters) form*)\n"
+const char doc_defun[] = "(defun name (parameters) form*)\n"
 "Defines a function.";
-const char doc20[] = "(defvar variable form)\n"
+const char doc_defvar[] = "(defvar variable form)\n"
 "Defines a global variable.";
-const char doc21[] = "(bind (var*) (form) body)\n"
+const char doc_bind[] = "(bind (var*) (form) body)\n"
 "Binds each variable to the corresponding item in the list returned by evaluating form, and then evaluates body with that binding.";
-const char doc22[] = "(eq item item)\n"
+const char doc_eq[] = "(eq item item)\n"
 "Tests whether the two arguments are the same symbol, same character, equal numbers,\n"
 "or point to the same cons, and returns t or nil as appropriate.";
-const char doc23[] = "(car list)\n"
+const char doc_car[] = "(car list)\n"
 "Returns the first item in a list.";
-const char doc24[] = "(first list)\n"
+const char doc_first[] = "(first list)\n"
 "Returns the first item in a list. Equivalent to car.";
-const char doc25[] = "(cdr list)\n"
+const char doc_cdr[] = "(cdr list)\n"
 "Returns a list with the first item removed.";
-const char doc26[] = "(rest list)\n"
+const char doc_rest[] = "(rest list)\n"
 "Returns a list with the first item removed. Equivalent to cdr.";
-const char doc27[] = "(nth number list)\n"
+const char doc_nth[] = "(nth number list)\n"
 "Returns the nth item in list, counting from zero.";
-const char doc28[] = "(aref array index [index*])\n"
+const char doc_aref[] = "(aref array index [index*])\n"
 "Returns an element from the specified array.";
-const char doc29[] = "(char string n)\n"
+const char doc_char[] = "(char string n)\n"
 "Returns the nth character in a string, counting from zero.";
-const char doc30[] = "(string item)\n"
+const char doc_stringfn[] = "(string item)\n"
 "Converts its argument to a string.";
-const char doc31[] = "(pinmode pin mode)\n"
+const char doc_pinmode[] = "(pinmode pin mode)\n"
 "Sets the input/output mode of an Arduino pin number, and returns nil.\n"
 "The mode parameter can be an integer, a keyword, or t or nil.";
-const char doc32[] = "(digitalwrite pin state)\n"
+const char doc_digitalwrite[] = "(digitalwrite pin state)\n"
 "Sets the state of the specified Arduino pin number.";
-const char doc33[] = "(analogread pin)\n"
+const char doc_analogread[] = "(analogread pin)\n"
 "Reads the specified Arduino analogue pin number and returns the value.";
-const char doc34[] = "(register address [value])\n"
+const char doc_register[] = "(register address [value])\n"
 "Reads or writes the value of a peripheral register.\n"
 "If value is not specified the function returns the value of the register at address.\n"
 "If value is specified the value is written to the register at address and the function returns value.";
-const char doc35[] = "(format output controlstring [arguments]*)\n"
+const char doc_format[] = "(format output controlstring [arguments]*)\n"
 "Outputs its arguments formatted according to the format directives in controlstring.";
-const char doc36[] = "(or item*)\n"
+const char doc_or[] = "(or item*)\n"
 "Evaluates its arguments until one returns non-nil, and returns its value.";
-const char doc37[] = "(setq symbol value [symbol value]*)\n"
+const char doc_setq[] = "(setq symbol value [symbol value]*)\n"
 "For each pair of arguments assigns the value of the second argument\n"
 "to the variable specified in the first argument.";
-const char doc38[] = "(loop forms*)\n"
+const char doc_loop[] = "(loop forms*)\n"
 "Executes its arguments repeatedly until one of the arguments calls (return),\n"
 "which then causes an exit from the loop.";
-const char doc39[] = "(push item place)\n"
+const char doc_push[] = "(push item place)\n"
 "Modifies the value of place, which should be a list, to add item onto the front of the list,\n"
 "and returns the new list.";
-const char doc40[] = "(pop place)\n"
+const char doc_pop[] = "(pop place)\n"
 "Modifies the value of place, which should be a non-nil list, to remove its first item,\n"
 "and returns that item.";
-const char doc41[] = "(incf place [number])\n"
+const char doc_incf[] = "(incf place [number])\n"
 "Increments a place, which should have an numeric value, and returns the result.\n"
 "The third argument is an optional increment which defaults to 1.";
-const char doc42[] = "(decf place [number])\n"
+const char doc_decf[] = "(decf place [number])\n"
 "Decrements a place, which should have an numeric value, and returns the result.\n"
 "The third argument is an optional decrement which defaults to 1.";
-const char doc43[] = "(setf place value [place value]*)\n"
+const char doc_setf[] = "(setf place value [place value]*)\n"
 "For each pair of arguments modifies a place to the result of evaluating value.";
-const char doc44[] = "(dolist (var list [result]) form*)\n"
+const char doc_dolist[] = "(dolist (var list [result]) form*)\n"
 "Sets the local variable var to each element of list in turn, and executes the forms.\n"
 "It then returns result, or nil if result is omitted.";
-const char doc45[] = "(dotimes (var number [result]) form*)\n"
+const char doc_dotimes[] = "(dotimes (var number [result]) form*)\n"
 "Executes the forms number times, with the local variable var set to each integer from 0 to number-1 in turn.\n"
 "It then returns result, or nil if result is omitted.";
-const char doc46[] = "(do ((var [init [step]])*) (end-test result*) form*)\n"
-"Accepts an arbitrary number of iteration vars, which are initialised to init and stepped by step sequentially.\n"
-"The forms are executed until end-test is true. It returns result.";
-const char doc47[] = "(do* ((var [init [step]])*) (end-test result*) form*)\n"
+const char doc_do[] = "(do ((var [init [step]])*) (end-test result*) form*)\n"
 "Accepts an arbitrary number of iteration vars, which are initialised to init and stepped by step in parallel.\n"
 "The forms are executed until end-test is true. It returns result.";
-const char doc48[] = "(trace [function]*)\n"
+const char doc_dostar[] = "(do* ((var [init [step]])*) (end-test result*) form*)\n"
+"Accepts an arbitrary number of iteration vars, which are initialised to init and stepped by step sequentially.\n"
+"The forms are executed until end-test is true. It returns result.";
+const char doc_trace[] = "(trace [function]*)\n"
 "Turns on tracing of up to TRACEMAX user-defined functions,\n"
 "and returns a list of the functions currently being traced.";
-const char doc49[] = "(untrace [function]*)\n"
+const char doc_untrace[] = "(untrace [function]*)\n"
 "Turns off tracing of up to TRACEMAX user-defined functions, and returns a list of the functions untraced.\n"
 "If no functions are specified it untraces all functions.";
-const char doc50[] = "(for-millis ([number]) form*)\n"
+const char doc_formillis[] = "(for-millis ([number]) form*)\n"
 "Executes the forms and then waits until a total of number milliseconds have elapsed.\n"
 "Returns the total number of milliseconds taken.";
-const char doc51[] = "(time form)\n"
+const char doc_time[] = "(time form)\n"
 "Prints the value returned by the form, and the time taken to evaluate the form\n"
 "in milliseconds or seconds.";
-const char doc52[] = "(with-output-to-string (str) form*)\n"
+const char doc_withoutputtostring[] = "(with-output-to-string (str) form*)\n"
 "Returns a string containing the output to the stream variable str.";
-const char doc53[] = "(with-serial (str port [baud]) form*)\n"
+const char doc_withserial[] = "(with-serial (str port [baud]) form*)\n"
 "Evaluates the forms with str bound to a serial-stream using port.\n"
 "The optional baud gives the baud rate divided by 100, default 96.";
-const char doc54[] = "(with-i2c (str [port] address [read-p]) form*)\n"
+const char doc_withi2c[] = "(with-i2c (str [port] address [read-p]) form*)\n"
 "Evaluates the forms with str bound to an i2c-stream defined by address.\n"
 "If read-p is nil or omitted the stream is written to, otherwise it specifies the number of bytes\n"
 "to be read from the stream. If port is omitted it defaults to 0, otherwise it specifies the port, 0 or 1.";
-const char doc55[] = "(with-spi (str pin [clock] [bitorder] [mode]) form*)\n"
+const char doc_withspi[] = "(with-spi (str pin [clock] [bitorder] [mode]) form*)\n"
 "Evaluates the forms with str bound to an spi-stream.\n"
 "The parameters specify the enable pin, clock in kHz (default 4000),\n"
 "bitorder 0 for LSBFIRST and 1 for MSBFIRST (default 1), and SPI mode (default 0).";
-const char doc56[] = "(with-sd-card (str filename [mode]) form*)\n"
+const char doc_withsdcard[] = "(with-sd-card (str filename [mode]) form*)\n"
 "Evaluates the forms with str bound to an sd-stream reading from or writing to the file filename.\n"
 "If mode is omitted the file is read, otherwise 0 means read, 1 write-append, or 2 write-overwrite.";
-const char doc57[] = "(progn form*)\n"
+const char doc_progn[] = "(progn form*)\n"
 "Evaluates several forms grouped together into a block, and returns the result of evaluating the last form.";
-const char doc58[] = "(if test then [else])\n"
+const char doc_if[] = "(if test then [else])\n"
 "Evaluates test. If it's non-nil the form then is evaluated and returned;\n"
 "otherwise the form else is evaluated and returned.";
-const char doc59[] = "(cond ((test form*) (test form*) ... ))\n"
+const char doc_cond[] = "(cond ((test form*) (test form*) ... ))\n"
 "Each argument is a list consisting of a test optionally followed by one or more forms.\n"
 "If the test evaluates to non-nil the forms are evaluated, and the last value is returned as the result of the cond.\n"
 "If the test evaluates to nil, none of the forms are evaluated, and the next argument is processed in the same way.";
-const char doc60[] = "(when test form*)\n"
+const char doc_when[] = "(when test form*)\n"
 "Evaluates the test. If it's non-nil the forms are evaluated and the last value is returned.";
-const char doc61[] = "(unless test form*)\n"
+const char doc_unless[] = "(unless test form*)\n"
 "Evaluates the test. If it's nil the forms are evaluated and the last value is returned.";
-const char doc62[] = "(case keyform ((key form*) (key form*) ... ))\n"
+const char doc_case[] = "(case keyform ((key form*) (key form*) ... ))\n"
 "Evaluates a keyform to produce a test key, and then tests this against a series of arguments,\n"
 "each of which is a list containing a key optionally followed by one or more forms.";
-const char doc63[] = "(and item*)\n"
+const char doc_and[] = "(and item*)\n"
 "Evaluates its arguments until one returns nil, and returns the last value.";
-const char doc64[] = "(not item)\n"
+const char doc_not[] = "(not item)\n"
 "Returns t if its argument is nil, or nil otherwise. Equivalent to null.";
-const char doc65[] = "(null list)\n"
+const char doc_nullfn[] = "(null list)\n"
 "Returns t if its argument is nil, or nil otherwise. Equivalent to not.";
-const char doc66[] = "(cons item item)\n"
+const char doc_cons[] = "(cons item item)\n"
 "If the second argument is a list, cons returns a new list with item added to the front of the list.\n"
 "If the second argument isn't a list cons returns a dotted pair.";
-const char doc67[] = "(atom item)\n"
+const char doc_atom[] = "(atom item)\n"
 "Returns t if its argument is a single number, symbol, or nil.";
-const char doc68[] = "(listp item)\n"
+const char doc_listp[] = "(listp item)\n"
 "Returns t if its argument is a list.";
-const char doc69[] = "(consp item)\n"
+const char doc_consp[] = "(consp item)\n"
 "Returns t if its argument is a non-null list.";
-const char doc70[] = "(symbolp item)\n"
+const char doc_symbolp[] = "(symbolp item)\n"
 "Returns t if its argument is a symbol.";
-const char doc71[] = "(arrayp item)\n"
+const char doc_arrayp[] = "(arrayp item)\n"
 "Returns t if its argument is an array.";
-const char doc72[] = "(boundp item)\n"
+const char doc_boundp[] = "(boundp item)\n"
 "Returns t if its argument is a symbol with a value.";
-const char doc73[] = "(keywordp item)\n"
+const char doc_keywordp[] = "(keywordp item)\n"
 "Returns non-nil if its argument is a built-in or user-defined keyword.";
-const char doc74[] = "(set symbol value [symbol value]*)\n"
+const char doc_setfn[] = "(set symbol value [symbol value]*)\n"
 "For each pair of arguments, assigns the value of the second argument to the value of the first argument.";
-const char doc75[] = "(streamp item)\n"
+const char doc_streamp[] = "(streamp item)\n"
 "Returns t if its argument is a stream.";
-const char doc76[] = "(equal item item)\n"
-"Tests whether the two arguments are the same symbol, same character, equal numbers,\n"
-"or point to the same cons, and returns t or nil as appropriate.";
-const char doc77[] = "(caar list)";
-const char doc78[] = "(cadr list)";
-const char doc79[] = "(second list)\n"
+const char doc_equal[] = "(equal item item)\n"
+"Tests whether the two arguments are eq, have the same string representation,\n"
+"or have the same list structure.";
+const char doc_caar[] = "(caar list)";
+const char doc_cadr[] = "(cadr list)";
+const char doc_second[] = "(second list)\n"
 "Returns the second item in a list. Equivalent to cadr.";
-const char doc80[] = "(cdar list)\n"
+const char doc_cdar[] = "(cdar list)\n"
 "Equivalent to (cdr (car list)).";
-const char doc81[] = "(cddr list)\n"
+const char doc_cddr[] = "(cddr list)\n"
 "Equivalent to (cdr (cdr list)).";
-const char doc82[] = "(caaar list)\n"
+const char doc_caaar[] = "(caaar list)\n"
 "Equivalent to (car (car (car list))).";
-const char doc83[] = "(caadr list)\n"
-"Equivalent to (car (car (cdar list))).";
-const char doc84[] = "(cadar list)\n"
+const char doc_caadr[] = "(caadr list)\n"
+"Equivalent to (car (car (cdr list))).";
+const char doc_cadar[] = "(cadar list)\n"
 "Equivalent to (car (cdr (car list))).";
-const char doc85[] = "(caddr list)\n"
+const char doc_caddr[] = "(caddr list)\n"
 "Equivalent to (car (cdr (cdr list))).";
-const char doc86[] = "(third list)\n"
+const char doc_third[] = "(third list)\n"
 "Returns the third item in a list. Equivalent to caddr.";
-const char doc87[] = "(cdaar list)\n"
-"Equivalent to (cdar (car (car list))).";
-const char doc88[] = "(cdadr list)\n"
+const char doc_cdaar[] = "(cdaar list)\n"
+"Equivalent to (cdr (car (car list))).";
+const char doc_cdadr[] = "(cdadr list)\n"
 "Equivalent to (cdr (car (cdr list))).";
-const char doc89[] = "(cddar list)\n"
+const char doc_cddar[] = "(cddar list)\n"
 "Equivalent to (cdr (cdr (car list))).";
-const char doc90[] = "(cdddr list)\n"
+const char doc_cdddr[] = "(cdddr list)\n"
 "Equivalent to (cdr (cdr (cdr list))).";
-const char doc91[] = "(length item)\n"
+const char doc_length[] = "(length item)\n"
 "Returns the number of items in a list, the length of a string, or the length of a one-dimensional array.";
-const char doc92[] = "(array-dimensions item)\n"
+const char doc_arraydimensions[] = "(array-dimensions item)\n"
 "Returns a list of the dimensions of an array.";
-const char doc93[] = "(list item*)\n"
+const char doc_list[] = "(list item*)\n"
 "Returns a list of the values of its arguments.";
-const char doc94[] = "(copy-list list)\n"
+const char doc_copylist[] = "(copy-list list)\n"
 "Returns a copy of a list.";
-const char doc95[] = "(make-array size [:initial-element element] [:element-type 'bit])\n"
+const char doc_makearray[] = "(make-array size [:initial-element element] [:element-type 'bit])\n"
 "If size is an integer it creates a one-dimensional array with elements from 0 to size-1.\n"
 "If size is a list of n integers it creates an n-dimensional array with those dimensions.\n"
 "If :element-type 'bit is specified the array is a bit array.";
-const char doc96[] = "(reverse list)\n"
+const char doc_reverse[] = "(reverse list)\n"
 "Returns a list with the elements of list in reverse order.";
-const char doc97[] = "(assoc key list [:test function])\n"
+const char doc_assoc[] = "(assoc key list [:test function])\n"
 "Looks up a key in an association list of (key . value) pairs, using eq or the specified test function,\n"
 "and returns the matching pair, or nil if no pair is found.";
-const char doc98[] = "(member item list [:test function])\n"
+const char doc_member[] = "(member item list [:test function])\n"
 "Searches for an item in a list, using eq or the specified test function, and returns the list starting\n"
 "from the first occurrence of the item, or nil if it is not found.";
-const char doc99[] = "(apply function list)\n"
+const char doc_apply[] = "(apply function list)\n"
 "Returns the result of evaluating function, with the list of arguments specified by the second parameter.";
-const char doc100[] = "(funcall function argument*)\n"
+const char doc_funcall[] = "(funcall function argument*)\n"
 "Evaluates function with the specified arguments.";
-const char doc101[] = "(append list*)\n"
+const char doc_append[] = "(append list*)\n"
 "Joins its arguments, which should be lists, into a single list.";
-const char doc102[] = "(mapc function list1 [list]*)\n"
+const char doc_mapc[] = "(mapc function list1 [list]*)\n"
 "Applies the function to each element in one or more lists, ignoring the results.\n"
 "It returns the first list argument.";
-const char doc103[] = "(mapl function list1 [list]*)\n"
+const char doc_mapl[] = "(mapl function list1 [list]*)\n"
 "Applies the function to one or more lists and then successive cdrs of those lists,\n"
 "ignoring the results. It returns the first list argument.";
-const char doc104[] = "(mapcar function list1 [list]*)\n"
+const char doc_mapcar[] = "(mapcar function list1 [list]*)\n"
 "Applies the function to each element in one or more lists, and returns the resulting list.";
-const char doc105[] = "(mapcan function list1 [list]*)\n"
+const char doc_mapcan[] = "(mapcan function list1 [list]*)\n"
 "Applies the function to each element in one or more lists. The results should be lists,\n"
 "and these are destructively concatenated together to give the value returned.";
-const char doc106[] = "(maplist function list1 [list]*)\n"
+const char doc_maplist[] = "(maplist function list1 [list]*)\n"
 "Applies the function to one or more lists and then successive cdrs of those lists,\n"
 "and returns the resulting list.";
-const char doc107[] = "(mapcon function list1 [list]*)\n"
+const char doc_mapcon[] = "(mapcon function list1 [list]*)\n"
 "Applies the function to one or more lists and then successive cdrs of those lists,\n"
 "and these are destructively concatenated together to give the value returned.";
-const char doc108[] = "(+ number*)\n"
+const char doc_add[] = "(+ number*)\n"
 "Adds its arguments together.\n"
 "If each argument is an integer, and the running total doesn't overflow, the result is an integer,\n"
 "otherwise a floating-point number.";
-const char doc109[] = "(- number*)\n"
+const char doc_subtract[] = "(- number*)\n"
 "If there is one argument, negates the argument.\n"
 "If there are two or more arguments, subtracts the second and subsequent arguments from the first argument.\n"
 "If each argument is an integer, and the running total doesn't overflow, returns the result as an integer,\n"
 "otherwise a floating-point number.";
-const char doc110[] = "(* number*)\n"
+const char doc_multiply[] = "(* number*)\n"
 "Multiplies its arguments together.\n"
 "If each argument is an integer, and the running total doesn't overflow, the result is an integer,\n"
 "otherwise it's a floating-point number.";
-const char doc111[] = "(/ number*)\n"
+const char doc_divide[] = "(/ number*)\n"
 "Divides the first argument by the second and subsequent arguments.\n"
 "If each argument is an integer, and each division produces an exact result, the result is an integer;\n"
 "otherwise it's a floating-point number.";
-const char doc112[] = "(mod number number)\n"
+const char doc_mod[] = "(mod number number)\n"
 "Returns its first argument modulo the second argument.\n"
 "If both arguments are integers the result is an integer; otherwise it's a floating-point number.";
-const char doc113[] = "(rem number number)\n"
+const char doc_rem[] = "(rem number number)\n"
 "Returns the remainder from dividing the first argument by the second argument.\n"
 "If both arguments are integers the result is an integer; otherwise it's a floating-point number.";
-const char doc114[] = "(1+ number)\n"
+const char doc_oneplus[] = "(1+ number)\n"
 "Adds one to its argument and returns it.\n"
 "If the argument is an integer the result is an integer if possible;\n"
 "otherwise it's a floating-point number.";
-const char doc115[] = "(1- number)\n"
+const char doc_oneminus[] = "(1- number)\n"
 "Subtracts one from its argument and returns it.\n"
 "If the argument is an integer the result is an integer if possible;\n"
 "otherwise it's a floating-point number.";
-const char doc116[] = "(abs number)\n"
+const char doc_abs[] = "(abs number)\n"
 "Returns the absolute, positive value of its argument.\n"
 "If the argument is an integer the result will be returned as an integer if possible,\n"
 "otherwise a floating-point number.";
-const char doc117[] = "(random number)\n"
+const char doc_random[] = "(random number)\n"
 "If number is an integer returns a random number between 0 and one less than its argument.\n"
 "Otherwise returns a floating-point number between zero and number.";
-const char doc118[] = "(max number*)\n"
+const char doc_maxfn[] = "(max number*)\n"
 "Returns the maximum of one or more arguments.";
-const char doc119[] = "(min number*)\n"
+const char doc_minfn[] = "(min number*)\n"
 "Returns the minimum of one or more arguments.";
-const char doc120[] = "(/= number*)\n"
+const char doc_noteq[] = "(/= number*)\n"
 "Returns t if none of the arguments are equal, or nil if two or more arguments are equal.";
-const char doc121[] = "(= number*)\n"
+const char doc_numeq[] = "(= number*)\n"
 "Returns t if all the arguments, which must be numbers, are numerically equal, and nil otherwise.";
-const char doc122[] = "(< number*)\n"
+const char doc_less[] = "(< number*)\n"
 "Returns t if each argument is less than the next argument, and nil otherwise.";
-const char doc123[] = "(<= number*)\n"
+const char doc_lesseq[] = "(<= number*)\n"
 "Returns t if each argument is less than or equal to the next argument, and nil otherwise.";
-const char doc124[] = "(> number*)\n"
+const char doc_greater[] = "(> number*)\n"
 "Returns t if each argument is greater than the next argument, and nil otherwise.";
-const char doc125[] = "(>= number*)\n"
+const char doc_greatereq[] = "(>= number*)\n"
 "Returns t if each argument is greater than or equal to the next argument, and nil otherwise.";
-const char doc126[] = "(plusp number)\n"
+const char doc_plusp[] = "(plusp number)\n"
 "Returns t if the argument is greater than zero, or nil otherwise.";
-const char doc127[] = "(minusp number)\n"
+const char doc_minusp[] = "(minusp number)\n"
 "Returns t if the argument is less than zero, or nil otherwise.";
-const char doc128[] = "(zerop number)\n"
+const char doc_zerop[] = "(zerop number)\n"
 "Returns t if the argument is zero.";
-const char doc129[] = "(oddp number)\n"
+const char doc_oddp[] = "(oddp number)\n"
 "Returns t if the integer argument is odd.";
-const char doc130[] = "(evenp number)\n"
+const char doc_evenp[] = "(evenp number)\n"
 "Returns t if the integer argument is even.";
-const char doc131[] = "(integerp number)\n"
+const char doc_integerp[] = "(integerp number)\n"
 "Returns t if the argument is an integer.";
-const char doc132[] = "(numberp number)\n"
+const char doc_numberp[] = "(numberp number)\n"
 "Returns t if the argument is a number.";
-const char doc133[] = "(float number)\n"
+const char doc_floatfn[] = "(float number)\n"
 "Returns its argument converted to a floating-point number.";
-const char doc134[] = "(floatp number)\n"
+const char doc_floatp[] = "(floatp number)\n"
 "Returns t if the argument is a floating-point number.";
-const char doc135[] = "(sin number)\n"
+const char doc_sin[] = "(sin number)\n"
 "Returns sin(number).";
-const char doc136[] = "(cos number)\n"
+const char doc_cos[] = "(cos number)\n"
 "Returns cos(number).";
-const char doc137[] = "(tan number)\n"
+const char doc_tan[] = "(tan number)\n"
 "Returns tan(number).";
-const char doc138[] = "(asin number)\n"
+const char doc_asin[] = "(asin number)\n"
 "Returns asin(number).";
-const char doc139[] = "(acos number)\n"
+const char doc_acos[] = "(acos number)\n"
 "Returns acos(number).";
-const char doc140[] = "(atan number1 [number2])\n"
+const char doc_atan[] = "(atan number1 [number2])\n"
 "Returns the arc tangent of number1/number2, in radians. If number2 is omitted it defaults to 1.";
-const char doc141[] = "(sinh number)\n"
+const char doc_sinh[] = "(sinh number)\n"
 "Returns sinh(number).";
-const char doc142[] = "(cosh number)\n"
+const char doc_cosh[] = "(cosh number)\n"
 "Returns cosh(number).";
-const char doc143[] = "(tanh number)\n"
+const char doc_tanh[] = "(tanh number)\n"
 "Returns tanh(number).";
-const char doc144[] = "(exp number)\n"
+const char doc_exp[] = "(exp number)\n"
 "Returns exp(number).";
-const char doc145[] = "(sqrt number)\n"
+const char doc_sqrt[] = "(sqrt number)\n"
 "Returns sqrt(number).";
-const char doc146[] = "(log number [base])\n"
+const char doc_log[] = "(log number [base])\n"
 "Returns the logarithm of number to the specified base. If base is omitted it defaults to e.";
-const char doc147[] = "(expt number power)\n"
+const char doc_expt[] = "(expt number power)\n"
 "Returns number raised to the specified power.\n"
 "Returns the result as an integer if the arguments are integers and the result will be within range,\n"
 "otherwise a floating-point number.";
-const char doc148[] = "(ceiling number [divisor])\n"
+const char doc_ceiling[] = "(ceiling number [divisor])\n"
 "Returns the integer closest to +infinity for number/divisor. If divisor is omitted it defaults to 1.";
-const char doc149[] = "(floor number [divisor])\n"
+const char doc_floor[] = "(floor number [divisor])\n"
 "Returns the integer closest to -infinity for number/divisor. If divisor is omitted it defaults to 1.";
-const char doc150[] = "(truncate number [divisor])\n"
+const char doc_truncate[] = "(truncate number [divisor])\n"
 "Returns the integer part of number/divisor. If divisor is omitted it defaults to 1.";
-const char doc151[] = "(round number [divisor])\n"
+const char doc_round[] = "(round number [divisor])\n"
 "Returns the integer closest to number/divisor. If divisor is omitted it defaults to 1.";
-const char doc152[] = "(char-code character)\n"
+const char doc_charcode[] = "(char-code character)\n"
 "Returns the ASCII code for a character, as an integer.";
-const char doc153[] = "(code-char integer)\n"
+const char doc_codechar[] = "(code-char integer)\n"
 "Returns the character for the specified ASCII code.";
-const char doc154[] = "(characterp item)\n"
+const char doc_characterp[] = "(characterp item)\n"
 "Returns t if the argument is a character and nil otherwise.";
-const char doc155[] = "(stringp item)\n"
+const char doc_stringp[] = "(stringp item)\n"
 "Returns t if the argument is a string and nil otherwise.";
-const char doc156[] = "(string= string string)\n"
+const char doc_stringeq[] = "(string= string string)\n"
 "Returns t if the two strings are the same, or nil otherwise.";
-const char doc157[] = "(string< string string)\n"
+const char doc_stringless[] = "(string< string string)\n"
 "Returns the index to the first mismatch if the first string is alphabetically less than the second string,\n"
 "or nil otherwise.";
-const char doc158[] = "(string> string string)\n"
+const char doc_stringgreater[] = "(string> string string)\n"
 "Returns the index to the first mismatch if the first string is alphabetically greater than the second string,\n"
 "or nil otherwise.";
-const char doc159[] = "(string/= string string)\n"
+const char doc_stringnoteq[] = "(string/= string string)\n"
 "Returns the index to the first mismatch if the two strings are not the same, or nil otherwise.";
-const char doc160[] = "(string<= string string)\n"
+const char doc_stringlesseq[] = "(string<= string string)\n"
 "Returns the index to the first mismatch if the first string is alphabetically less than or equal to\n"
 "the second string, or nil otherwise.";
-const char doc161[] = "(string>= string string)\n"
+const char doc_stringgreatereq[] = "(string>= string string)\n"
 "Returns the index to the first mismatch if the first string is alphabetically greater than or equal to\n"
 "the second string, or nil otherwise.";
-const char doc162[] = "(sort list test)\n"
+const char doc_sort[] = "(sort list test)\n"
 "Destructively sorts list according to the test function, using an insertion sort, and returns the sorted list.";
-const char doc163[] = "(concatenate 'string string*)\n"
+const char doc_concatenate[] = "(concatenate 'string string*)\n"
 "Joins together the strings given in the second and subsequent arguments, and returns a single string.";
-const char doc164[] = "(subseq seq start [end])\n"
+const char doc_subseq[] = "(subseq seq start [end])\n"
 "Returns a subsequence of a list or string from item start to item end-1.";
-const char doc165[] = "(search pattern target [:test function])\n"
+const char doc_search[] = "(search pattern target [:test function])\n"
 "Returns the index of the first occurrence of pattern in target, or nil if it's not found.\n"
 "The target can be a list or string. If it's a list a test function can be specified; default eq.";
-const char doc166[] = "(read-from-string string)\n"
+const char doc_readfromstring[] = "(read-from-string string)\n"
 "Reads an atom or list from the specified string and returns it.";
-const char doc167[] = "(princ-to-string item)\n"
+const char doc_princtostring[] = "(princ-to-string item)\n"
 "Prints its argument to a string, and returns the string.\n"
 "Characters and strings are printed without quotation marks or escape characters.";
-const char doc168[] = "(prin1-to-string item [stream])\n"
+const char doc_prin1tostring[] = "(prin1-to-string item [stream])\n"
 "Prints its argument to a string, and returns the string.\n"
 "Characters and strings are printed with quotation marks and escape characters,\n"
 "in a format that will be suitable for read-from-string.";
-const char doc169[] = "(logand [value*])\n"
+const char doc_logand[] = "(logand [value*])\n"
 "Returns the bitwise & of the values.";
-const char doc170[] = "(logior [value*])\n"
+const char doc_logior[] = "(logior [value*])\n"
 "Returns the bitwise | of the values.";
-const char doc171[] = "(logxor [value*])\n"
+const char doc_logxor[] = "(logxor [value*])\n"
 "Returns the bitwise ^ of the values.";
-const char doc172[] = "(lognot value)\n"
+const char doc_lognot[] = "(lognot value)\n"
 "Returns the bitwise logical NOT of the value.";
-const char doc173[] = "(ash value shift)\n"
+const char doc_ash[] = "(ash value shift)\n"
 "Returns the result of bitwise shifting value by shift bits. If shift is positive, value is shifted to the left.";
-const char doc174[] = "(logbitp bit value)\n"
+const char doc_logbitp[] = "(logbitp bit value)\n"
 "Returns t if bit number bit in value is a '1', and nil if it is a '0'.";
-const char doc175[] = "(eval form*)\n"
+const char doc_eval[] = "(eval form*)\n"
 "Evaluates its argument an extra time.";
-const char doc176[] = "(return [value])\n"
+const char doc_return[] = "(return [value])\n"
 "Exits from a (dotimes ...), (dolist ...), or (loop ...) loop construct and returns value.";
-const char doc177[] = "(globals)\n"
+const char doc_globals[] = "(globals)\n"
 "Returns a list of global variables.";
-const char doc178[] = "(locals)\n"
+const char doc_locals[] = "(locals)\n"
 "Returns an association list of local variables and their values.";
-const char doc179[] = "(makunbound symbol)\n"
+const char doc_makunbound[] = "(makunbound symbol)\n"
 "Removes the value of the symbol from GlobalEnv and returns the symbol.";
-const char doc180[] = "(break)\n"
+const char doc_break[] = "(break)\n"
 "Inserts a breakpoint in the program. When evaluated prints Break! and reenters the REPL.";
-const char doc181[] = "(read [stream])\n"
+const char doc_read[] = "(read [stream])\n"
 "Reads an atom or list from the serial input and returns it.\n"
 "If stream is specified the item is read from the specified stream.";
-const char doc182[] = "(prin1 item [stream])\n"
+const char doc_prin1[] = "(prin1 item [stream])\n"
 "Prints its argument, and returns its value.\n"
 "Strings are printed with quotation marks and escape characters.";
-const char doc183[] = "(print item [stream])\n"
+const char doc_print[] = "(print item [stream])\n"
 "Prints its argument with quotation marks and escape characters, on a new line, and followed by a space.\n"
 "If stream is specified the argument is printed to the specified stream.";
-const char doc184[] = "(princ item [stream])\n"
+const char doc_princ[] = "(princ item [stream])\n"
 "Prints its argument, and returns its value.\n"
 "Characters and strings are printed without quotation marks or escape characters.";
-const char doc185[] = "(terpri [stream])\n"
+const char doc_terpri[] = "(terpri [stream])\n"
 "Prints a new line, and returns nil.\n"
 "If stream is specified the new line is written to the specified stream.";
-const char doc186[] = "(read-byte stream)\n"
+const char doc_readbyte[] = "(read-byte stream)\n"
 "Reads a byte from a stream and returns it.";
-const char doc187[] = "(read-line [stream])\n"
+const char doc_readline[] = "(read-line [stream])\n"
 "Reads characters from the serial input up to a newline character, and returns them as a string,\n"
 "excluding the newline. If stream is specified the line is read from the specified stream.";
-const char doc188[] = "(write-byte number [stream])\n"
+const char doc_writebyte[] = "(write-byte number [stream])\n"
 "Writes a byte to a stream.";
-const char doc189[] = "(write-string string [stream])\n"
+const char doc_writestring[] = "(write-string string [stream])\n"
 "Writes a string. If stream is specified the string is written to the stream.";
-const char doc190[] = "(write-line string [stream])\n"
+const char doc_writeline[] = "(write-line string [stream])\n"
 "Writes a string terminated by a newline character. If stream is specified the string is written to the stream.";
-const char doc191[] = "(restart-i2c stream [read-p])\n"
+const char doc_restarti2c[] = "(restart-i2c stream [read-p])\n"
 "Restarts an i2c-stream.\n"
 "If read-p is nil or omitted the stream is written to.\n"
 "If read-p is an integer it specifies the number of bytes to be read from the stream.";
-const char doc192[] = "(gc [print time])\n"
-"Forces a garbage collection and prints the number of objects collected, and the time taken.";
-const char doc193[] = "(room)\n"
+const char doc_gc[] = "(gc [print-time])\n"
+"Forces a garbage collection and prints the number of objects collected, and optionally the time taken.";
+const char doc_room[] = "(room)\n"
 "Returns the number of free Lisp cells remaining.";
-const char doc194[] = "(backtrace [on])\n"
+const char doc_backtrace[] = "(backtrace [on])\n"
 "Sets the state of backtrace according to the boolean flag 'on',\n"
 "or with no argument displays the current state of backtrace.";
-const char doc195[] = "(save-image [symbol])\n"
+const char doc_saveimage[] = "(save-image [symbol])\n"
 "Saves the current uLisp image to non-volatile memory or SD card so it can be loaded using load-image.";
-const char doc196[] = "(load-image [filename])\n"
+const char doc_loadimage[] = "(load-image [filename])\n"
 "Loads a saved uLisp image from non-volatile memory or SD card.";
-const char doc197[] = "(cls)\n"
+const char doc_cls[] = "(cls)\n"
 "Prints a clear-screen character.";
-const char doc198[] = "(digitalread pin)\n"
+const char doc_digitalread[] = "(digitalread pin)\n"
 "Reads the state of the specified Arduino pin number and returns t (high) or nil (low).";
-const char doc199[] = "(analogreadresolution bits)\n"
+const char doc_analogreadresolution[] = "(analogreadresolution bits)\n"
 "Specifies the resolution for the analogue inputs on platforms that support it.\n"
 "The default resolution on all platforms is 10 bits.";
-const char doc200[] = "(analogwrite pin value)\n"
+const char doc_analogwrite[] = "(analogwrite pin value)\n"
 "Writes the value to the specified Arduino pin number.";
-const char doc201[] = "(delay number)\n"
+const char doc_rgbledwrite[] = "(rgbledwrite pin red green blue)\n"
+"Writes to an RGB NeoPixel LED on the specified pin. Each of the colour values can be 0 to 255.";
+const char doc_delay[] = "(delay number)\n"
 "Delays for a specified number of milliseconds.";
-const char doc202[] = "(millis)\n"
+const char doc_millis[] = "(millis)\n"
 "Returns the time in milliseconds that uLisp has been running.";
-const char doc203[] = "(sleep secs)\n"
+const char doc_sleep[] = "(sleep secs)\n"
 "Puts the processor into a low-power sleep mode for secs.\n"
 "Only supported on some platforms. On other platforms it does delay(1000*secs).";
-const char doc204[] = "(note [pin] [note] [octave])\n"
+const char doc_note[] = "(note [pin] [note] [octave])\n"
 "Generates a square wave on pin.\n"
 "note represents the note in the well-tempered scale.\n"
 "The argument octave can specify an octave; default 0.";
-const char doc205[] = "(edit 'function)\n"
+const char doc_edit[] = "(edit 'function)\n"
 "Calls the Lisp tree editor to allow you to edit a function definition.";
-const char doc206[] = "(pprint item [str])\n"
+const char doc_pprint[] = "(pprint item [str])\n"
 "Prints its argument, using the pretty printer, to display it formatted in a structured way.\n"
 "If str is specified it prints to the specified stream. It returns no value.";
-const char doc207[] = "(pprintall [str])\n"
+const char doc_pprintall[] = "(pprintall [str])\n"
 "Pretty-prints the definition of every function and variable defined in the uLisp workspace.\n"
 "If str is specified it prints to the specified stream. It returns no value.";
-const char doc208[] = "(require 'symbol)\n"
+const char doc_require[] = "(require 'symbol)\n"
 "Loads the definition of a function defined with defun, or a variable defined with defvar, from the Lisp Library.\n"
 "It returns t if it was loaded, or nil if the symbol is already defined or isn't defined in the Lisp Library.";
-const char doc209[] = "(list-library)\n"
+const char doc_listlibrary[] = "(list-library)\n"
 "Prints a list of the functions defined in the List Library.";
-const char doc210[] = "(? item)\n"
+const char doc_help[] = "(? item)\n"
 "Prints the documentation string of a built-in or user-defined function.";
-const char doc211[] = "(documentation 'symbol [type])\n"
+const char doc_documentation[] = "(documentation 'symbol [type])\n"
 "Returns the documentation string of a built-in or user-defined function. The type argument is ignored.";
-const char doc212[] = "(apropos item)\n"
+const char doc_apropos[] = "(apropos item)\n"
 "Prints the user-defined and built-in functions whose names contain the specified string or symbol.";
-const char doc213[] = "(apropos-list item)\n"
+const char doc_aproposlist[] = "(apropos-list item)\n"
 "Returns a list of user-defined and built-in functions whose names contain the specified string or symbol.";
-const char doc214[] = "(unwind-protect form1 [forms]*)\n"
+const char doc_unwindprotect[] = "(unwind-protect form1 [forms]*)\n"
 "Evaluates form1 and forms in order and returns the value of form1,\n"
 "but guarantees to evaluate forms even if an error occurs in form1.";
-const char doc215[] = "(ignore-errors [forms]*)\n"
+const char doc_ignoreerrors[] = "(ignore-errors [forms]*)\n"
 "Evaluates forms ignoring errors.";
-const char doc216[] = "(error controlstring [arguments]*)\n"
+const char doc_error[] = "(error controlstring [arguments]*)\n"
 "Signals an error. The message is printed by format using the controlstring and arguments.";
-const char doc217[] = "(directory)\n"
+const char doc_directory[] = "(directory)\n"
 "Returns a list of the filenames of the files on the SD card.";
-const char doc218[] = "(with-client (str [address port]) form*)\n"
+const char doc_withclient[] = "(with-client (str [address port]) form*)\n"
 "Evaluates the forms with str bound to a wifi-stream.";
-const char doc219[] = "(available stream)\n"
+const char doc_available[] = "(available stream)\n"
 "Returns the number of bytes available for reading from the wifi-stream, or zero if no bytes are available.";
-const char doc220[] = "(wifi-server)\n"
+const char doc_wifiserver[] = "(wifi-server)\n"
 "Starts a Wi-Fi server running. It returns nil.";
-const char doc221[] = "(wifi-softap ssid [password channel hidden])\n"
+const char doc_wifisoftap[] = "(wifi-softap ssid [password channel hidden])\n"
 "Set up a soft access point to establish a Wi-Fi network.\n"
 "Returns the IP address as a string or nil if unsuccessful.";
-const char doc222[] = "(connected stream)\n"
+const char doc_connected[] = "(connected stream)\n"
 "Returns t or nil to indicate if the client on stream is connected.";
-const char doc223[] = "(wifi-localip)\n"
+const char doc_wifilocalip[] = "(wifi-localip)\n"
 "Returns the IP address of the local network as a string.";
-const char doc224[] = "(wifi-connect [ssid pass])\n"
+const char doc_wificonnect[] = "(wifi-connect [ssid pass])\n"
 "Connects to the Wi-Fi network ssid using password pass. It returns the IP address as a string.";
-const char doc225[] = "(get-time)\n"
+const char doc_gettime[] = "(get-time)\n"
 "Returns a list of the current date and time, or nil if the time isn't available, as:\n"
 "(year, month (1-12), day (1-31), hour (0-32), minute (0-59), second (0-60), weekday (1-7), yearday (1-366)).";
-const char doc226[] = "(with-gfx (str) form*)\n"
+const char doc_withgfx[] = "(with-gfx (str) form*)\n"
 "Evaluates the forms with str bound to an gfx-stream so you can print text\n"
 "to the graphics display using the standard uLisp print commands.";
-const char doc227[] = "(draw-pixel x y [colour])\n"
+const char doc_drawpixel[] = "(draw-pixel x y [colour])\n"
 "Draws a pixel at coordinates (x,y) in colour, or white if omitted.";
-const char doc228[] = "(draw-line x0 y0 x1 y1 [colour])\n"
+const char doc_drawline[] = "(draw-line x0 y0 x1 y1 [colour])\n"
 "Draws a line from (x0,y0) to (x1,y1) in colour, or white if omitted.";
-const char doc229[] = "(draw-rect x y w h [colour])\n"
+const char doc_drawrect[] = "(draw-rect x y w h [colour])\n"
 "Draws an outline rectangle with its top left corner at (x,y), with width w,\n"
 "and with height h. The outline is drawn in colour, or white if omitted.";
-const char doc230[] = "(fill-rect x y w h [colour])\n"
+const char doc_fillrect[] = "(fill-rect x y w h [colour])\n"
 "Draws a filled rectangle with its top left corner at (x,y), with width w,\n"
 "and with height h. The outline is drawn in colour, or white if omitted.";
-const char doc231[] = "(draw-circle x y r [colour])\n"
+const char doc_drawcircle[] = "(draw-circle x y r [colour])\n"
 "Draws an outline circle with its centre at (x, y) and with radius r.\n"
 "The circle is drawn in colour, or white if omitted.";
-const char doc232[] = "(fill-circle x y r [colour])\n"
+const char doc_fillcircle[] = "(fill-circle x y r [colour])\n"
 "Draws a filled circle with its centre at (x, y) and with radius r.\n"
 "The circle is drawn in colour, or white if omitted.";
-const char doc233[] = "(draw-round-rect x y w h radius [colour])\n"
+const char doc_drawroundrect[] = "(draw-round-rect x y w h radius [colour])\n"
 "Draws an outline rounded rectangle with its top left corner at (x,y), with width w,\n"
 "height h, and corner radius radius. The outline is drawn in colour, or white if omitted.";
-const char doc234[] = "(fill-round-rect x y w h radius [colour])\n"
+const char doc_fillroundrect[] = "(fill-round-rect x y w h radius [colour])\n"
 "Draws a filled rounded rectangle with its top left corner at (x,y), with width w,\n"
 "height h, and corner radius radius. The outline is drawn in colour, or white if omitted.";
-const char doc235[] = "(draw-triangle x0 y0 x1 y1 x2 y2 [colour])\n"
+const char doc_drawtriangle[] = "(draw-triangle x0 y0 x1 y1 x2 y2 [colour])\n"
 "Draws an outline triangle between (x1,y1), (x2,y2), and (x3,y3).\n"
 "The outline is drawn in colour, or white if omitted.";
-const char doc236[] = "(fill-triangle x0 y0 x1 y1 x2 y2 [colour])\n"
+const char doc_filltriangle[] = "(fill-triangle x0 y0 x1 y1 x2 y2 [colour])\n"
 "Draws a filled triangle between (x1,y1), (x2,y2), and (x3,y3).\n"
 "The outline is drawn in colour, or white if omitted.";
-const char doc237[] = "(draw-char x y char [colour background size])\n"
+const char doc_drawchar[] = "(draw-char x y char [colour background size])\n"
 "Draws the character char with its top left corner at (x,y).\n"
 "The character is drawn in a 5 x 7 pixel font in colour against background,\n"
 "which default to white and black respectively.\n"
 "The character can optionally be scaled by size.";
-const char doc238[] = "(set-cursor x y)\n"
+const char doc_setcursor[] = "(set-cursor x y)\n"
 "Sets the start point for text plotting to (x, y).";
-const char doc239[] = "(set-text-color colour [background])\n"
+const char doc_settextcolor[] = "(set-text-color colour [background])\n"
 "Sets the text colour for text plotted using (with-gfx ...).";
-const char doc240[] = "(set-text-size scale)\n"
+const char doc_settextsize[] = "(set-text-size scale)\n"
 "Scales text by the specified size, default 1.";
-const char doc241[] = "(set-text-wrap boolean)\n"
+const char doc_settextwrap[] = "(set-text-wrap boolean)\n"
 "Specified whether text wraps at the right-hand edge of the display; the default is t.";
-const char doc242[] = "(fill-screen [colour])\n"
+const char doc_fillscreen[] = "(fill-screen [colour])\n"
 "Fills or clears the screen with colour, default black.";
-const char doc243[] = "(set-rotation option)\n"
+const char doc_setrotation[] = "(set-rotation option)\n"
 "Sets the display orientation for subsequent graphics commands; values are 0, 1, 2, or 3.";
-const char doc244[] = "(invert-display boolean)\n"
+const char doc_invertdisplay[] = "(invert-display boolean)\n"
 "Mirror-images the display.";
-const char doc245[] = "(read-pixel x y)\n"
+const char doc_readpixel[] = "(read-pixel x y)\n"
 "Returns the colour of the pixel at x,y.";
-const char doc246[] = "(touchscreen)\n"
+const char doc_touchscreen[] = "(touchscreen)\n"
 "Returns a list of (x y) to give the touch position, or nil if no touch.";
-const char doc247[] = "(display-size)\n"
+const char doc_displaysize[] = "(display-size)\n"
 "Returns a list of (width height) to give the display dimensions in the current orientation.";
-const char doc248[] = "(display)\n"
+const char doc_display[] = "(display)\n"
 "Needed on OLED displays to update the display from the memory buffer.";
 
 // Built-in symbol lookup table
 const tbl_entry_t lookup_table[] = {
-  { string0, NULL, 0000, doc0 },
-  { string1, NULL, 0000, doc1 },
-  { string2, NULL, 0000, doc2 },
-  { string3, NULL, 0000, doc3 },
-  { string4, NULL, 0000, doc4 },
-  { string5, NULL, 0000, NULL },
-  { string6, NULL, 0000, NULL },
-  { string7, NULL, 0000, NULL },
-  { string8, NULL, 0000, NULL },
-  { string9, NULL, 0000, NULL },
-  { string10, NULL, 0000, NULL },
-  { string11, NULL, 0000, NULL },
-  { string12, NULL, 0000, doc12 },
-  { string13, NULL, 0017, doc13 },
-  { string14, NULL, 0017, doc14 },
-  { string15, NULL, 0017, doc15 },
-  { string16, NULL, 0017, NULL },
-  { string17, NULL, 0007, NULL },
-  { string18, sp_quote, 0311, NULL },
-  { string19, sp_defun, 0327, doc19 },
-  { string20, sp_defvar, 0313, doc20 },
-  { string21, sp_bind, 0327, doc21 },
-  { string22, fn_eq, 0222, doc22 },
-  { string23, fn_car, 0211, doc23 },
-  { string24, fn_car, 0211, doc24 },
-  { string25, fn_cdr, 0211, doc25 },
-  { string26, fn_cdr, 0211, doc26 },
-  { string27, fn_nth, 0222, doc27 },
-  { string28, fn_aref, 0227, doc28 },
-  { string29, fn_char, 0222, doc29 },
-  { string30, fn_stringfn, 0211, doc30 },
-  { string31, fn_pinmode, 0222, doc31 },
-  { string32, fn_digitalwrite, 0222, doc32 },
-  { string33, fn_analogread, 0211, doc33 },
-  { string34, fn_register, 0212, doc34 },
-  { string35, fn_format, 0227, doc35 },
-  { string36, sp_or, 0307, doc36 },
-  { string37, sp_setq, 0327, doc37 },
-  { string38, sp_loop, 0307, doc38 },
-  { string39, sp_push, 0322, doc39 },
-  { string40, sp_pop, 0311, doc40 },
-  { string41, sp_incf, 0312, doc41 },
-  { string42, sp_decf, 0312, doc42 },
-  { string43, sp_setf, 0327, doc43 },
-  { string44, sp_dolist, 0317, doc44 },
-  { string45, sp_dotimes, 0317, doc45 },
-  { string46, sp_do, 0327, doc46 },
-  { string47, sp_dostar, 0317, doc47 },
-  { string48, sp_trace, 0301, doc48 },
-  { string49, sp_untrace, 0301, doc49 },
-  { string50, sp_formillis, 0317, doc50 },
-  { string51, sp_time, 0311, doc51 },
-  { string52, sp_withoutputtostring, 0317, doc52 },
-  { string53, sp_withserial, 0317, doc53 },
-  { string54, sp_withi2c, 0317, doc54 },
-  { string55, sp_withspi, 0317, doc55 },
-  { string56, sp_withsdcard, 0327, doc56 },
-  { string57, tf_progn, 0107, doc57 },
-  { string58, tf_if, 0123, doc58 },
-  { string59, tf_cond, 0107, doc59 },
-  { string60, tf_when, 0117, doc60 },
-  { string61, tf_unless, 0117, doc61 },
-  { string62, tf_case, 0117, doc62 },
-  { string63, tf_and, 0107, doc63 },
-  { string64, fn_not, 0211, doc64 },
-  { string65, fn_not, 0211, doc65 },
-  { string66, fn_cons, 0222, doc66 },
-  { string67, fn_atom, 0211, doc67 },
-  { string68, fn_listp, 0211, doc68 },
-  { string69, fn_consp, 0211, doc69 },
-  { string70, fn_symbolp, 0211, doc70 },
-  { string71, fn_arrayp, 0211, doc71 },
-  { string72, fn_boundp, 0211, doc72 },
-  { string73, fn_keywordp, 0211, doc73 },
-  { string74, fn_setfn, 0227, doc74 },
-  { string75, fn_streamp, 0211, doc75 },
-  { string76, fn_equal, 0222, doc76 },
-  { string77, fn_caar, 0211, doc77 },
-  { string78, fn_cadr, 0211, doc78 },
-  { string79, fn_cadr, 0211, doc79 },
-  { string80, fn_cdar, 0211, doc80 },
-  { string81, fn_cddr, 0211, doc81 },
-  { string82, fn_caaar, 0211, doc82 },
-  { string83, fn_caadr, 0211, doc83 },
-  { string84, fn_cadar, 0211, doc84 },
-  { string85, fn_caddr, 0211, doc85 },
-  { string86, fn_caddr, 0211, doc86 },
-  { string87, fn_cdaar, 0211, doc87 },
-  { string88, fn_cdadr, 0211, doc88 },
-  { string89, fn_cddar, 0211, doc89 },
-  { string90, fn_cdddr, 0211, doc90 },
-  { string91, fn_length, 0211, doc91 },
-  { string92, fn_arraydimensions, 0211, doc92 },
-  { string93, fn_list, 0207, doc93 },
-  { string94, fn_copylist, 0211, doc94 },
-  { string95, fn_makearray, 0215, doc95 },
-  { string96, fn_reverse, 0211, doc96 },
-  { string97, fn_assoc, 0224, doc97 },
-  { string98, fn_member, 0224, doc98 },
-  { string99, fn_apply, 0227, doc99 },
-  { string100, fn_funcall, 0217, doc100 },
-  { string101, fn_append, 0207, doc101 },
-  { string102, fn_mapc, 0227, doc102 },
-  { string103, fn_mapl, 0227, doc103 },
-  { string104, fn_mapcar, 0227, doc104 },
-  { string105, fn_mapcan, 0227, doc105 },
-  { string106, fn_maplist, 0227, doc106 },
-  { string107, fn_mapcon, 0227, doc107 },
-  { string108, fn_add, 0207, doc108 },
-  { string109, fn_subtract, 0217, doc109 },
-  { string110, fn_multiply, 0207, doc110 },
-  { string111, fn_divide, 0217, doc111 },
-  { string112, fn_mod, 0222, doc112 },
-  { string113, fn_rem, 0222, doc113 },
-  { string114, fn_oneplus, 0211, doc114 },
-  { string115, fn_oneminus, 0211, doc115 },
-  { string116, fn_abs, 0211, doc116 },
-  { string117, fn_random, 0211, doc117 },
-  { string118, fn_maxfn, 0217, doc118 },
-  { string119, fn_minfn, 0217, doc119 },
-  { string120, fn_noteq, 0217, doc120 },
-  { string121, fn_numeq, 0217, doc121 },
-  { string122, fn_less, 0217, doc122 },
-  { string123, fn_lesseq, 0217, doc123 },
-  { string124, fn_greater, 0217, doc124 },
-  { string125, fn_greatereq, 0217, doc125 },
-  { string126, fn_plusp, 0211, doc126 },
-  { string127, fn_minusp, 0211, doc127 },
-  { string128, fn_zerop, 0211, doc128 },
-  { string129, fn_oddp, 0211, doc129 },
-  { string130, fn_evenp, 0211, doc130 },
-  { string131, fn_integerp, 0211, doc131 },
-  { string132, fn_numberp, 0211, doc132 },
-  { string133, fn_floatfn, 0211, doc133 },
-  { string134, fn_floatp, 0211, doc134 },
-  { string135, fn_sin, 0211, doc135 },
-  { string136, fn_cos, 0211, doc136 },
-  { string137, fn_tan, 0211, doc137 },
-  { string138, fn_asin, 0211, doc138 },
-  { string139, fn_acos, 0211, doc139 },
-  { string140, fn_atan, 0212, doc140 },
-  { string141, fn_sinh, 0211, doc141 },
-  { string142, fn_cosh, 0211, doc142 },
-  { string143, fn_tanh, 0211, doc143 },
-  { string144, fn_exp, 0211, doc144 },
-  { string145, fn_sqrt, 0211, doc145 },
-  { string146, fn_log, 0212, doc146 },
-  { string147, fn_expt, 0222, doc147 },
-  { string148, fn_ceiling, 0212, doc148 },
-  { string149, fn_floor, 0212, doc149 },
-  { string150, fn_truncate, 0212, doc150 },
-  { string151, fn_round, 0212, doc151 },
-  { string152, fn_charcode, 0211, doc152 },
-  { string153, fn_codechar, 0211, doc153 },
-  { string154, fn_characterp, 0211, doc154 },
-  { string155, fn_stringp, 0211, doc155 },
-  { string156, fn_stringeq, 0222, doc156 },
-  { string157, fn_stringless, 0222, doc157 },
-  { string158, fn_stringgreater, 0222, doc158 },
-  { string159, fn_stringnoteq, 0222, doc159 },
-  { string160, fn_stringlesseq, 0222, doc160 },
-  { string161, fn_stringgreatereq, 0222, doc161 },
-  { string162, fn_sort, 0222, doc162 },
-  { string163, fn_concatenate, 0217, doc163 },
-  { string164, fn_subseq, 0223, doc164 },
-  { string165, fn_search, 0224, doc165 },
-  { string166, fn_readfromstring, 0211, doc166 },
-  { string167, fn_princtostring, 0211, doc167 },
-  { string168, fn_prin1tostring, 0211, doc168 },
-  { string169, fn_logand, 0207, doc169 },
-  { string170, fn_logior, 0207, doc170 },
-  { string171, fn_logxor, 0207, doc171 },
-  { string172, fn_lognot, 0211, doc172 },
-  { string173, fn_ash, 0222, doc173 },
-  { string174, fn_logbitp, 0222, doc174 },
-  { string175, fn_eval, 0211, doc175 },
-  { string176, fn_return, 0201, doc176 },
-  { string177, fn_globals, 0200, doc177 },
-  { string178, fn_locals, 0200, doc178 },
-  { string179, fn_makunbound, 0211, doc179 },
-  { string180, fn_break, 0200, doc180 },
-  { string181, fn_read, 0201, doc181 },
-  { string182, fn_prin1, 0212, doc182 },
-  { string183, fn_print, 0212, doc183 },
-  { string184, fn_princ, 0212, doc184 },
-  { string185, fn_terpri, 0201, doc185 },
-  { string186, fn_readbyte, 0202, doc186 },
-  { string187, fn_readline, 0201, doc187 },
-  { string188, fn_writebyte, 0212, doc188 },
-  { string189, fn_writestring, 0212, doc189 },
-  { string190, fn_writeline, 0212, doc190 },
-  { string191, fn_restarti2c, 0212, doc191 },
-  { string192, fn_gc, 0201, doc192 },
-  { string193, fn_room, 0200, doc193 },
-  { string194, fn_backtrace, 0201, doc194 },
-  { string195, fn_saveimage, 0201, doc195 },
-  { string196, fn_loadimage, 0201, doc196 },
-  { string197, fn_cls, 0200, doc197 },
-  { string198, fn_digitalread, 0211, doc198 },
-  { string199, fn_analogreadresolution, 0211, doc199 },
-  { string200, fn_analogwrite, 0222, doc200 },
-  { string201, fn_delay, 0211, doc201 },
-  { string202, fn_millis, 0200, doc202 },
-  { string203, fn_sleep, 0201, doc203 },
-  { string204, fn_note, 0203, doc204 },
-  { string205, fn_edit, 0211, doc205 },
-  { string206, fn_pprint, 0212, doc206 },
-  { string207, fn_pprintall, 0201, doc207 },
-  { string208, fn_require, 0211, doc208 },
-  { string209, fn_listlibrary, 0200, doc209 },
-  { string210, sp_help, 0311, doc210 },
-  { string211, fn_documentation, 0212, doc211 },
-  { string212, fn_apropos, 0211, doc212 },
-  { string213, fn_aproposlist, 0211, doc213 },
-  { string214, sp_unwindprotect, 0307, doc214 },
-  { string215, sp_ignoreerrors, 0307, doc215 },
-  { string216, sp_error, 0317, doc216 },
-  { string217, fn_directory, 0200, doc217 },
-  { string218, sp_withclient, 0317, doc218 },
-  { string219, fn_available, 0211, doc219 },
-  { string220, fn_wifiserver, 0200, doc220 },
-  { string221, fn_wifisoftap, 0204, doc221 },
-  { string222, fn_connected, 0211, doc222 },
-  { string223, fn_wifilocalip, 0200, doc223 },
-  { string224, fn_wificonnect, 0203, doc224 },
-  { string225, fn_gettime, 0200, doc225 },
-  { string226, sp_withgfx, 0317, doc226 },
-  { string227, fn_drawpixel, 0223, doc227 },
-  { string228, fn_drawline, 0245, doc228 },
-  { string229, fn_drawrect, 0245, doc229 },
-  { string230, fn_fillrect, 0245, doc230 },
-  { string231, fn_drawcircle, 0234, doc231 },
-  { string232, fn_fillcircle, 0234, doc232 },
-  { string233, fn_drawroundrect, 0256, doc233 },
-  { string234, fn_fillroundrect, 0256, doc234 },
-  { string235, fn_drawtriangle, 0267, doc235 },
-  { string236, fn_filltriangle, 0267, doc236 },
-  { string237, fn_drawchar, 0236, doc237 },
-  { string238, fn_setcursor, 0222, doc238 },
-  { string239, fn_settextcolor, 0212, doc239 },
-  { string240, fn_settextsize, 0211, doc240 },
-  { string241, fn_settextwrap, 0211, doc241 },
-  { string242, fn_fillscreen, 0201, doc242 },
-  { string243, fn_setrotation, 0211, doc243 },
-  { string244, fn_invertdisplay, 0211, doc244 },
-  { string245, fn_readpixel, 0222, doc245 },
-  { string246, fn_touchscreen, 0201, doc246 },
-  { string247, fn_displaysize, 0200, doc247 },
-  { string248, fn_display, 0200, doc248 },
-  { string249, (fn_ptr_type)LED_BUILTIN, 0, NULL },
-  { string250, (fn_ptr_type)HIGH, DIGITALWRITE, NULL },
-  { string251, (fn_ptr_type)LOW, DIGITALWRITE, NULL },
-  { string252, (fn_ptr_type)INPUT, PINMODE, NULL },
-  { string253, (fn_ptr_type)INPUT_PULLUP, PINMODE, NULL },
-  { string254, (fn_ptr_type)INPUT_PULLDOWN, PINMODE, NULL },
-  { string255, (fn_ptr_type)OUTPUT, PINMODE, NULL },
+  { "nil", NULL, 0000, doc_nil },
+  { "t", NULL, 0000, doc_tee },
+  { "nothing", NULL, 0000, doc_nothing },
+  { "&optional", NULL, 0000, doc_optional },
+  { "*features*", NULL, 0000, doc_features },
+  { ":initial-element", NULL, 0000, NULL },
+  { ":element-type", NULL, 0000, NULL },
+  { ":test", NULL, 0000, NULL },
+  { ":a", NULL, 0000, NULL },
+  { ":b", NULL, 0000, NULL },
+  { ":c", NULL, 0000, NULL },
+  { "bit", NULL, 0000, NULL },
+  { "&rest", NULL, 0000, doc_amprest },
+  { "lambda", NULL, 0017, doc_lambda },
+  { "let", NULL, 0017, doc_let },
+  { "let*", NULL, 0017, doc_letstar },
+  { "closure", NULL, 0017, NULL },
+  { "*pc*", NULL, 0007, NULL },
+  { "quote", sp_quote, 0311, NULL },
+  { "defun", sp_defun, 0327, doc_defun },
+  { "defvar", sp_defvar, 0313, doc_defvar },
+  { "bind", sp_bind, 0327, doc_bind },
+  { "eq", fn_eq, 0222, doc_eq },
+  { "car", fn_car, 0211, doc_car },
+  { "first", fn_car, 0211, doc_first },
+  { "cdr", fn_cdr, 0211, doc_cdr },
+  { "rest", fn_cdr, 0211, doc_rest },
+  { "nth", fn_nth, 0222, doc_nth },
+  { "aref", fn_aref, 0227, doc_aref },
+  { "char", fn_char, 0222, doc_char },
+  { "string", fn_stringfn, 0211, doc_stringfn },
+  { "pinmode", fn_pinmode, 0222, doc_pinmode },
+  { "digitalwrite", fn_digitalwrite, 0222, doc_digitalwrite },
+  { "analogread", fn_analogread, 0211, doc_analogread },
+  { "register", fn_register, 0212, doc_register },
+  { "format", fn_format, 0227, doc_format },
+  { "or", sp_or, 0307, doc_or },
+  { "setq", sp_setq, 0327, doc_setq },
+  { "loop", sp_loop, 0307, doc_loop },
+  { "push", sp_push, 0322, doc_push },
+  { "pop", sp_pop, 0311, doc_pop },
+  { "incf", sp_incf, 0312, doc_incf },
+  { "decf", sp_decf, 0312, doc_decf },
+  { "setf", sp_setf, 0327, doc_setf },
+  { "dolist", sp_dolist, 0317, doc_dolist },
+  { "dotimes", sp_dotimes, 0317, doc_dotimes },
+  { "do", sp_do, 0327, doc_do },
+  { "do*", sp_dostar, 0317, doc_dostar },
+  { "trace", sp_trace, 0301, doc_trace },
+  { "untrace", sp_untrace, 0301, doc_untrace },
+  { "for-millis", sp_formillis, 0317, doc_formillis },
+  { "time", sp_time, 0311, doc_time },
+  { "with-output-to-string", sp_withoutputtostring, 0317, doc_withoutputtostring },
+  { "with-serial", sp_withserial, 0317, doc_withserial },
+  { "with-i2c", sp_withi2c, 0317, doc_withi2c },
+  { "with-spi", sp_withspi, 0317, doc_withspi },
+  { "with-sd-card", sp_withsdcard, 0327, doc_withsdcard },
+  { "progn", tf_progn, 0107, doc_progn },
+  { "if", tf_if, 0123, doc_if },
+  { "cond", tf_cond, 0107, doc_cond },
+  { "when", tf_when, 0117, doc_when },
+  { "unless", tf_unless, 0117, doc_unless },
+  { "case", tf_case, 0117, doc_case },
+  { "and", tf_and, 0107, doc_and },
+  { "not", fn_not, 0211, doc_not },
+  { "null", fn_not, 0211, doc_nullfn },
+  { "cons", fn_cons, 0222, doc_cons },
+  { "atom", fn_atom, 0211, doc_atom },
+  { "listp", fn_listp, 0211, doc_listp },
+  { "consp", fn_consp, 0211, doc_consp },
+  { "symbolp", fn_symbolp, 0211, doc_symbolp },
+  { "arrayp", fn_arrayp, 0211, doc_arrayp },
+  { "boundp", fn_boundp, 0211, doc_boundp },
+  { "keywordp", fn_keywordp, 0211, doc_keywordp },
+  { "set", fn_setfn, 0227, doc_setfn },
+  { "streamp", fn_streamp, 0211, doc_streamp },
+  { "equal", fn_equal, 0222, doc_equal },
+  { "caar", fn_caar, 0211, doc_caar },
+  { "cadr", fn_cadr, 0211, doc_cadr },
+  { "second", fn_cadr, 0211, doc_second },
+  { "cdar", fn_cdar, 0211, doc_cdar },
+  { "cddr", fn_cddr, 0211, doc_cddr },
+  { "caaar", fn_caaar, 0211, doc_caaar },
+  { "caadr", fn_caadr, 0211, doc_caadr },
+  { "cadar", fn_cadar, 0211, doc_cadar },
+  { "caddr", fn_caddr, 0211, doc_caddr },
+  { "third", fn_caddr, 0211, doc_third },
+  { "cdaar", fn_cdaar, 0211, doc_cdaar },
+  { "cdadr", fn_cdadr, 0211, doc_cdadr },
+  { "cddar", fn_cddar, 0211, doc_cddar },
+  { "cdddr", fn_cdddr, 0211, doc_cdddr },
+  { "length", fn_length, 0211, doc_length },
+  { "array-dimensions", fn_arraydimensions, 0211, doc_arraydimensions },
+  { "list", fn_list, 0207, doc_list },
+  { "copy-list", fn_copylist, 0211, doc_copylist },
+  { "make-array", fn_makearray, 0215, doc_makearray },
+  { "reverse", fn_reverse, 0211, doc_reverse },
+  { "assoc", fn_assoc, 0224, doc_assoc },
+  { "member", fn_member, 0224, doc_member },
+  { "apply", fn_apply, 0227, doc_apply },
+  { "funcall", fn_funcall, 0217, doc_funcall },
+  { "append", fn_append, 0207, doc_append },
+  { "mapc", fn_mapc, 0227, doc_mapc },
+  { "mapl", fn_mapl, 0227, doc_mapl },
+  { "mapcar", fn_mapcar, 0227, doc_mapcar },
+  { "mapcan", fn_mapcan, 0227, doc_mapcan },
+  { "maplist", fn_maplist, 0227, doc_maplist },
+  { "mapcon", fn_mapcon, 0227, doc_mapcon },
+  { "+", fn_add, 0207, doc_add },
+  { "-", fn_subtract, 0217, doc_subtract },
+  { "*", fn_multiply, 0207, doc_multiply },
+  { "/", fn_divide, 0217, doc_divide },
+  { "mod", fn_mod, 0222, doc_mod },
+  { "rem", fn_rem, 0222, doc_rem },
+  { "1+", fn_oneplus, 0211, doc_oneplus },
+  { "1-", fn_oneminus, 0211, doc_oneminus },
+  { "abs", fn_abs, 0211, doc_abs },
+  { "random", fn_random, 0211, doc_random },
+  { "max", fn_maxfn, 0217, doc_maxfn },
+  { "min", fn_minfn, 0217, doc_minfn },
+  { "/=", fn_noteq, 0217, doc_noteq },
+  { "=", fn_numeq, 0217, doc_numeq },
+  { "<", fn_less, 0217, doc_less },
+  { "<=", fn_lesseq, 0217, doc_lesseq },
+  { ">", fn_greater, 0217, doc_greater },
+  { ">=", fn_greatereq, 0217, doc_greatereq },
+  { "plusp", fn_plusp, 0211, doc_plusp },
+  { "minusp", fn_minusp, 0211, doc_minusp },
+  { "zerop", fn_zerop, 0211, doc_zerop },
+  { "oddp", fn_oddp, 0211, doc_oddp },
+  { "evenp", fn_evenp, 0211, doc_evenp },
+  { "integerp", fn_integerp, 0211, doc_integerp },
+  { "numberp", fn_numberp, 0211, doc_numberp },
+  { "float", fn_floatfn, 0211, doc_floatfn },
+  { "floatp", fn_floatp, 0211, doc_floatp },
+  { "sin", fn_sin, 0211, doc_sin },
+  { "cos", fn_cos, 0211, doc_cos },
+  { "tan", fn_tan, 0211, doc_tan },
+  { "asin", fn_asin, 0211, doc_asin },
+  { "acos", fn_acos, 0211, doc_acos },
+  { "atan", fn_atan, 0212, doc_atan },
+  { "sinh", fn_sinh, 0211, doc_sinh },
+  { "cosh", fn_cosh, 0211, doc_cosh },
+  { "tanh", fn_tanh, 0211, doc_tanh },
+  { "exp", fn_exp, 0211, doc_exp },
+  { "sqrt", fn_sqrt, 0211, doc_sqrt },
+  { "log", fn_log, 0212, doc_log },
+  { "expt", fn_expt, 0222, doc_expt },
+  { "ceiling", fn_ceiling, 0212, doc_ceiling },
+  { "floor", fn_floor, 0212, doc_floor },
+  { "truncate", fn_truncate, 0212, doc_truncate },
+  { "round", fn_round, 0212, doc_round },
+  { "char-code", fn_charcode, 0211, doc_charcode },
+  { "code-char", fn_codechar, 0211, doc_codechar },
+  { "characterp", fn_characterp, 0211, doc_characterp },
+  { "stringp", fn_stringp, 0211, doc_stringp },
+  { "string=", fn_stringeq, 0222, doc_stringeq },
+  { "string<", fn_stringless, 0222, doc_stringless },
+  { "string>", fn_stringgreater, 0222, doc_stringgreater },
+  { "string/=", fn_stringnoteq, 0222, doc_stringnoteq },
+  { "string<=", fn_stringlesseq, 0222, doc_stringlesseq },
+  { "string>=", fn_stringgreatereq, 0222, doc_stringgreatereq },
+  { "sort", fn_sort, 0222, doc_sort },
+  { "concatenate", fn_concatenate, 0217, doc_concatenate },
+  { "subseq", fn_subseq, 0223, doc_subseq },
+  { "search", fn_search, 0224, doc_search },
+  { "read-from-string", fn_readfromstring, 0211, doc_readfromstring },
+  { "princ-to-string", fn_princtostring, 0211, doc_princtostring },
+  { "prin1-to-string", fn_prin1tostring, 0211, doc_prin1tostring },
+  { "logand", fn_logand, 0207, doc_logand },
+  { "logior", fn_logior, 0207, doc_logior },
+  { "logxor", fn_logxor, 0207, doc_logxor },
+  { "lognot", fn_lognot, 0211, doc_lognot },
+  { "ash", fn_ash, 0222, doc_ash },
+  { "logbitp", fn_logbitp, 0222, doc_logbitp },
+  { "eval", fn_eval, 0211, doc_eval },
+  { "return", fn_return, 0201, doc_return },
+  { "globals", fn_globals, 0200, doc_globals },
+  { "locals", fn_locals, 0200, doc_locals },
+  { "makunbound", fn_makunbound, 0211, doc_makunbound },
+  { "break", fn_break, 0200, doc_break },
+  { "read", fn_read, 0201, doc_read },
+  { "prin1", fn_prin1, 0212, doc_prin1 },
+  { "print", fn_print, 0212, doc_print },
+  { "princ", fn_princ, 0212, doc_princ },
+  { "terpri", fn_terpri, 0201, doc_terpri },
+  { "read-byte", fn_readbyte, 0202, doc_readbyte },
+  { "read-line", fn_readline, 0201, doc_readline },
+  { "write-byte", fn_writebyte, 0212, doc_writebyte },
+  { "write-string", fn_writestring, 0212, doc_writestring },
+  { "write-line", fn_writeline, 0212, doc_writeline },
+  { "restart-i2c", fn_restarti2c, 0212, doc_restarti2c },
+  { "gc", fn_gc, 0201, doc_gc },
+  { "room", fn_room, 0200, doc_room },
+  { "backtrace", fn_backtrace, 0201, doc_backtrace },
+  { "save-image", fn_saveimage, 0201, doc_saveimage },
+  { "load-image", fn_loadimage, 0201, doc_loadimage },
+  { "cls", fn_cls, 0200, doc_cls },
+  { "digitalread", fn_digitalread, 0211, doc_digitalread },
+  { "analogreadresolution", fn_analogreadresolution, 0211, doc_analogreadresolution },
+  { "analogwrite", fn_analogwrite, 0222, doc_analogwrite },
+  { "rgbledwrite", fn_rgbledwrite, 0244, doc_rgbledwrite },
+  { "delay", fn_delay, 0211, doc_delay },
+  { "millis", fn_millis, 0200, doc_millis },
+  { "sleep", fn_sleep, 0201, doc_sleep },
+  { "note", fn_note, 0203, doc_note },
+  { "edit", fn_edit, 0211, doc_edit },
+  { "pprint", fn_pprint, 0212, doc_pprint },
+  { "pprintall", fn_pprintall, 0201, doc_pprintall },
+  { "require", fn_require, 0211, doc_require },
+  { "list-library", fn_listlibrary, 0200, doc_listlibrary },
+  { "?", sp_help, 0311, doc_help },
+  { "documentation", fn_documentation, 0212, doc_documentation },
+  { "apropos", fn_apropos, 0211, doc_apropos },
+  { "apropos-list", fn_aproposlist, 0211, doc_aproposlist },
+  { "unwind-protect", sp_unwindprotect, 0307, doc_unwindprotect },
+  { "ignore-errors", sp_ignoreerrors, 0307, doc_ignoreerrors },
+  { "error", sp_error, 0317, doc_error },
+  { "directory", fn_directory, 0200, doc_directory },
+  { "with-client", sp_withclient, 0317, doc_withclient },
+  { "available", fn_available, 0211, doc_available },
+  { "wifi-server", fn_wifiserver, 0200, doc_wifiserver },
+  { "wifi-softap", fn_wifisoftap, 0204, doc_wifisoftap },
+  { "connected", fn_connected, 0211, doc_connected },
+  { "wifi-localip", fn_wifilocalip, 0200, doc_wifilocalip },
+  { "wifi-connect", fn_wificonnect, 0203, doc_wificonnect },
+  { "get-time", fn_gettime, 0200, doc_gettime },
+  { "with-gfx", sp_withgfx, 0317, doc_withgfx },
+  { "draw-pixel", fn_drawpixel, 0223, doc_drawpixel },
+  { "draw-line", fn_drawline, 0245, doc_drawline },
+  { "draw-rect", fn_drawrect, 0245, doc_drawrect },
+  { "fill-rect", fn_fillrect, 0245, doc_fillrect },
+  { "draw-circle", fn_drawcircle, 0234, doc_drawcircle },
+  { "fill-circle", fn_fillcircle, 0234, doc_fillcircle },
+  { "draw-round-rect", fn_drawroundrect, 0256, doc_drawroundrect },
+  { "fill-round-rect", fn_fillroundrect, 0256, doc_fillroundrect },
+  { "draw-triangle", fn_drawtriangle, 0267, doc_drawtriangle },
+  { "fill-triangle", fn_filltriangle, 0267, doc_filltriangle },
+  { "draw-char", fn_drawchar, 0236, doc_drawchar },
+  { "set-cursor", fn_setcursor, 0222, doc_setcursor },
+  { "set-text-color", fn_settextcolor, 0212, doc_settextcolor },
+  { "set-text-size", fn_settextsize, 0211, doc_settextsize },
+  { "set-text-wrap", fn_settextwrap, 0211, doc_settextwrap },
+  { "fill-screen", fn_fillscreen, 0201, doc_fillscreen },
+  { "set-rotation", fn_setrotation, 0211, doc_setrotation },
+  { "invert-display", fn_invertdisplay, 0211, doc_invertdisplay },
+  { "read-pixel", fn_readpixel, 0222, doc_readpixel },
+  { "touchscreen", fn_touchscreen, 0201, doc_touchscreen },
+  { "display-size", fn_displaysize, 0200, doc_displaysize },
+  { "display", fn_display, 0200, doc_display },
+  { ":led-builtin", (fn_ptr_type)LED_BUILTIN, 0, NULL },
+  { ":pin-neopixel", (fn_ptr_type)PIN_NEOPIXEL, 0, NULL },
+  { ":high", (fn_ptr_type)HIGH, DIGITALWRITE, NULL },
+  { ":low", (fn_ptr_type)LOW, DIGITALWRITE, NULL },
+  { ":input", (fn_ptr_type)INPUT, PINMODE, NULL },
+  { ":input-pullup", (fn_ptr_type)INPUT_PULLUP, PINMODE, NULL },
+  { ":input-pulldown", (fn_ptr_type)INPUT_PULLDOWN, PINMODE, NULL },
+  { ":output", (fn_ptr_type)OUTPUT, PINMODE, NULL },
 };
 
 #if !defined(extensions)
@@ -6370,7 +6119,7 @@ uint8_t getminmax (builtin_t name) {
 
 void checkminmax (builtin_t name, int nargs) {
   if (!(name < ENDFUNCTIONS)) error2("not a builtin");
-  volatile uint8_t minmax = getminmax(name); // Fix bug on Wio Terminal
+  uint8_t minmax = getminmax(name);
   if (nargs<((minmax >> 3) & 0x07)) error2(toofewargs);
   if ((minmax & 0x07) != 0x07 && nargs>(minmax & 0x07)) error2(toomanyargs);
 }
@@ -7225,7 +6974,7 @@ void setup () {
   initenv();
   initsleep();
   initgfx();
-  pfstring(PSTR("uLisp 4.9 "), pserial); pln(pserial);
+  pfstring(PSTR("uLisp 4.9a "), pserial); pln(pserial);
 }
 
 // Read/Evaluate/Print loop
